@@ -1,5 +1,7 @@
 package com.uptimesentry.model;
 
+import java.util.List;
+
 /**
  * MonitoredTarget represents a service or device being monitored.
  * This is the data model that stores configuration for a monitored target.
@@ -12,6 +14,7 @@ public class MonitoredTarget {
     private String host;              // URL or hostname
     private int timeout;              // in seconds
     private String recoveryAction;    // command to execute on failure
+    private List<Integer> acceptableStatusCodes; // for HTTP targets, e.g., [200, 201]
     
     /**
      * Constructor for creating a new monitored target.
@@ -65,6 +68,14 @@ public class MonitoredTarget {
         this.recoveryAction = recoveryAction;
     }
     
+    public List<Integer> getAcceptableStatusCodes() {
+        return acceptableStatusCodes;
+    }
+
+    public void setAcceptableStatusCodes(List<Integer> acceptableStatusCodes) {
+        this.acceptableStatusCodes = acceptableStatusCodes;
+    }
+
     /**
      * Provides a readable overview of the target's attributes.
      */

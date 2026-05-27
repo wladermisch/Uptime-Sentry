@@ -1,5 +1,8 @@
 package com.uptimesentry.monitor;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
+
 import com.uptimesentry.model.MonitoredTarget;
 
 /**
@@ -30,11 +33,35 @@ public class HttpMonitor implements Monitorable {
      */
     @Override
     public boolean checkAvailability() {
-        // TODO: implement HTTP GET request using java.net.HttpURLConnection
-        // - measure response time
-        // - check for status codes (200 = success, 404/500 = failure)
-        // - handle timeouts and connection errors
-        return false;
+        String host = target.getHost();
+        int timeout = target.getTimeout();
+        
+        try {
+            HttpURLConnection connection = (HttpURLConnection) new URL(host).openConnection();
+            connection.setConnectTimeout(timeout * 1000); // converting to ms
+            connection.setReadTimeout(timeout * 1000);
+            
+            long startTime = System.currentTimeMillis();
+            
+            // This line opens the connection and gets the status code simultaneously
+            int responseCode = connection.getResponseCode();
+            
+            long endTime = System.currentTimeMillis();
+            this.lastResponseTime = endTime - startTime;
+
+            // If no custom list is configured, default to HTTP 200 as online.
+            if (target.getAcceptableStatusCodes() == null || target.getAcceptableStatusCodes().isEmpty()) {
+                return responseCode == 200;
+            }
+
+            // Check if returned code is in the list of acceptable ones.
+            return target.getAcceptableStatusCodes().contains(responseCode);
+            
+        } catch (Exception e) {
+            // Error connecting, timeout, bad URL format, etc.
+            this.lastResponseTime = -1; // Indicate failure
+            return false;
+        }
     }
     
     /**
@@ -44,7 +71,6 @@ public class HttpMonitor implements Monitorable {
      */
     @Override
     public long getResponseTime() {
-        // TODO: return the response time from the last check
         return lastResponseTime;
     }
     
@@ -55,8 +81,7 @@ public class HttpMonitor implements Monitorable {
      */
     @Override
     public int getTimeout() {
-        // TODO: return target.getTimeout()
-        return 0;
+        return target.getTimeout();
     }
     
     /**
@@ -64,7 +89,15 @@ public class HttpMonitor implements Monitorable {
      */
     @Override
     public void executeRecovery() {
-        // TODO: execute recovery action from target.getRecoveryAction()
-        // - could be: run a system command, print alert, or execute a script
+        String recoveryAction = target.getRecoveryAction();
+
+        if (recoveryAction == null || recoveryAction.trim().isEmpty()) {
+            System.out.println("No recovery action configured for target: " + target.getName());
+            return;
+        }
+
+        // Minimal grade-2 behavior: show which command/script should run.
+        // Actual process execution can be added once menu/persistence flow is complete.
+        System.out.println("Recovery action for " + target.getName() + ": " + recoveryAction);
     }
 }
