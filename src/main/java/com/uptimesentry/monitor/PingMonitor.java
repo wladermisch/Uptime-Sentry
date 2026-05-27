@@ -34,7 +34,20 @@ public class PingMonitor implements Monitorable {
         // - measure response time
         // - respect the configured timeout
         // - handle network errors gracefully
-        return false;
+        String host = target.getHost();
+        int timeout = target.getTimeout();
+
+        try {
+            long startTime = System.currentTimeMillis();
+            boolean reachable = java.net.InetAddress.getByName(host).isReachable(timeout * 1000);
+            long endTime = System.currentTimeMillis();
+            this.lastResponseTime = endTime - startTime;
+            return reachable;
+        } catch (Exception e) {
+            // Handle exceptions (e.g., unknown host, network errors)
+            this.lastResponseTime = -1; // Indicate failure with -1, important for CheckResult
+            return false;
+        }
     }
     
     /**
@@ -55,8 +68,7 @@ public class PingMonitor implements Monitorable {
      */
     @Override
     public int getTimeout() {
-        // TODO: return target.getTimeout()
-        return 0;
+        return target.getTimeout();
     }
     
     /**
@@ -64,7 +76,14 @@ public class PingMonitor implements Monitorable {
      */
     @Override
     public void executeRecovery() {
-        // TODO: execute recovery action from target.getRecoveryAction()
-        // - could be: run a system command, print alert, or execute a script
+        String recoveryAction = target.getRecoveryAction();
+
+        if (recoveryAction == null || recoveryAction.trim().isEmpty()) {
+            System.out.println("No recovery action configured for target: " + target.getName());
+            return;
+        }
+
+        // Will implement this later.
+        System.out.println("Recovery action for " + target.getName() + ": " + recoveryAction);
     }
 }

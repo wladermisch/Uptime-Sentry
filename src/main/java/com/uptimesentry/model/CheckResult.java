@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 /**
  * CheckResult stores the outcome of a single monitoring check.
  * This is an immutable value object used in collections for history/reporting.
+ * 
+ * When a check fails, durationMillis is set to -1, and the message can contain error details.
  */
 public class CheckResult {
     
