@@ -16,11 +16,17 @@ public class InputValidator {
      * @throws ValidationException if the URL is invalid
      */
     public static String validateUrl(String urlString) throws ValidationException {
-        // TODO: implement URL validation using java.net.URL
-        // - check for null/empty input
-        // - ensure it starts with http:// or https://
-        // - attempt to parse as URL object
-        // - throw ValidationException with descriptive message if invalid
+        if (urlString == null || urlString.trim().isEmpty()) {
+            throw new ValidationException("URL cannot be empty.");
+        }
+        if (!urlString.startsWith("http://") && !urlString.startsWith("https://")) {
+            throw new ValidationException("URL must start with http:// or https://");
+        }
+        try {
+            new java.net.URL(urlString);
+        } catch (java.net.MalformedURLException e) {
+            throw new ValidationException("URL is malformed.");
+        }
         return urlString;
     }
     
@@ -32,10 +38,13 @@ public class InputValidator {
      * @throws ValidationException if timeout is invalid (negative, zero, or too large)
      */
     public static int validateTimeout(int timeout) throws ValidationException {
-        // TODO: implement timeout validation
-        // - ensure timeout is > 0
-        // - ensure timeout is <= some reasonable max (e.g., 3600 seconds)
-        // - throw ValidationException with descriptive message if invalid
+        if (timeout <= 0) {
+            throw new ValidationException("Timeout must be greater than zero.");
+        }
+        if (timeout > 3600) {
+            throw new ValidationException("Timeout must be less than or equal to 3600 seconds (1 hour).");
+        }
+
         return timeout;
     }
     
@@ -47,10 +56,21 @@ public class InputValidator {
      * @throws ValidationException if name is empty or null
      */
     public static String validateName(String name) throws ValidationException {
-        // TODO: implement name validation
-        // - check for null/empty input
-        // - trim whitespace
-        // - throw ValidationException if invalid
+        if (name == null || name.trim().isEmpty()) {
+            throw new ValidationException("Name cannot be empty.");
+        }
         return name;
     }
+    /**
+     * Validates that the host is not empty or whitespace-only.
+     * 
+     * @param host the host to validate
+     * @return the trimmed host if valid
+     * @throws ValidationException if host is empty or null
+     */
+    public static String validateHost(String host) throws ValidationException {
+        if (host == null || host.trim().isEmpty()) {
+            throw new ValidationException("Host cannot be empty.");
+        }
+        return host;}
 }
