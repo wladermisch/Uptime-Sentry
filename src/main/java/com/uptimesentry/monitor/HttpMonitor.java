@@ -96,8 +96,7 @@ public class HttpMonitor implements Monitorable {
             return;
         }
 
-        // Minimal grade-2 behavior: show which command/script should run.
-        // Actual process execution can be added once menu/persistence flow is complete.
+        // Will implement this later.
         System.out.println("Recovery action for " + target.getName() + ": " + recoveryAction);
     }
 }
