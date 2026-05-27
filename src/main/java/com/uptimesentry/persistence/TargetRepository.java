@@ -1,8 +1,15 @@
 package com.uptimesentry.persistence;
 
+import java.lang.reflect.Type;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.List;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import com.uptimesentry.model.MonitoredTarget;
 
 /**
@@ -19,12 +26,20 @@ public class TargetRepository {
      * @throws Exception if the file cannot be read or parsed
      */
     public static List<MonitoredTarget> loadTargets(Path filePath) throws Exception {
-        // TODO: implement JSON file loading using Gson
-        // - read JSON file from filePath
-        // - parse JSON to array of MonitoredTarget objects
-        // - handle FileNotFoundException (return empty list or throw)
-        // - handle JSON parsing errors with descriptive exceptions
-        return null;
+        if (filePath == null) {
+            return new ArrayList<>();
+        }
+
+        if (!Files.exists(filePath)) {
+            return new ArrayList<>();
+        }
+
+        String json = Files.readString(filePath);
+
+        Gson gson = new Gson();
+        Type listType = new TypeToken<List<MonitoredTarget>>() {}.getType();
+        List<MonitoredTarget> list = gson.fromJson(json, listType);
+        return list != null ? list : new ArrayList<>();
     }
     
     /**
@@ -35,10 +50,17 @@ public class TargetRepository {
      * @throws Exception if the file cannot be written
      */
     public static void saveTargets(List<MonitoredTarget> targets, Path filePath) throws Exception {
-        // TODO: implement JSON file saving using Gson
-        // - convert targets list to JSON
-        // - write JSON to filePath
-        // - handle IOException with descriptive exceptions
-        // - optionally pretty-print JSON for readability
+        if (filePath == null) {
+            throw new IllegalArgumentException("filePath must not be null");
+        }
+
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        String json = gson.toJson(targets != null ? targets : new ArrayList<>());
+
+        if (filePath.getParent() != null) {
+            Files.createDirectories(filePath.getParent());
+        }
+
+        Files.writeString(filePath, json, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     }
 }
