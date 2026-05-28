@@ -43,3 +43,6 @@ plan.md
 
 # Build tool wrappers
 .mvn/
+
+# Release artifacts
+releases/
