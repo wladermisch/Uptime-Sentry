@@ -17,6 +17,8 @@ Uptime-Sentry enables you to automatically monitor the reachability and performa
 - **Immediate Alerts**: Get notified as soon as a service goes down
 - **Delayed Notifications**: Optional time-based alert delays based on configuration
 - **Recovery Notifications**: Automatic alerts when services come back online
+- **Important Info**: As of now, I used AWT for Tray and Notifications, which highly likely wont work on Linux (I dont know about Mac). (as a fallback, it will just write into console, but notifications for Linux may be added later.)
+- 
 
 ### Automated Actions
 - Execute custom system commands on failure (e.g., restart a crashed server)
