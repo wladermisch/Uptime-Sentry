@@ -1,14 +1,17 @@
 package com.uptimesentry.app;
 
-import java.util.Scanner;
 import java.util.List;
+import java.util.Scanner;
 
 import com.uptimesentry.model.MonitoredTarget;
+import com.uptimesentry.monitor.HttpMonitor;
+import com.uptimesentry.monitor.Monitorable;
+import com.uptimesentry.monitor.PingMonitor;
+import com.uptimesentry.persistence.TargetRepository;
 import static com.uptimesentry.util.InputValidator.validateHost;
 import static com.uptimesentry.util.InputValidator.validateName;
 import static com.uptimesentry.util.InputValidator.validateTimeout;
 import static com.uptimesentry.util.InputValidator.validateUrl;
-import com.uptimesentry.persistence.TargetRepository;
 
 
 /**
@@ -17,9 +20,9 @@ import com.uptimesentry.persistence.TargetRepository;
  */
 public class ConsoleMenu {
     
-    private Scanner scanner;
+    final private Scanner scanner;
     private List<MonitoredTarget> targets;
-    private java.nio.file.Path filePath;
+    final private java.nio.file.Path filePath = java.nio.file.Paths.get("targets.json");
     
     /**
      * Constructor for initializing the console menu.
@@ -115,7 +118,9 @@ public class ConsoleMenu {
         System.out.print("Host/IP (1) or URL (2)? ");
         String choice = scanner.nextLine().trim();
         String hostOrUrl;
+        String targetType;
         if (choice.equals("1")) {
+            targetType = "PING";
             System.out.print("Enter host/IP: ");
             try {
                 hostOrUrl = validateHost(scanner.nextLine().trim());
@@ -124,6 +129,7 @@ public class ConsoleMenu {
                 return;
             }
         } else if (choice.equals("2")) {
+            targetType = "HTTP";
             System.out.print("Enter URL: ");
             try {
                 hostOrUrl = validateUrl(scanner.nextLine().trim());
@@ -154,7 +160,7 @@ public class ConsoleMenu {
                 nextId++;
             }
         }
-        targets.add(new MonitoredTarget(nextId, name, hostOrUrl, timeout, recoveryAction));
+        targets.add(new MonitoredTarget(nextId, name, targetType, hostOrUrl, timeout, recoveryAction));
         try {
             TargetRepository.saveTargets(targets, filePath);
         } catch (Exception e) {
@@ -163,19 +169,27 @@ public class ConsoleMenu {
         }
         
         System.out.println("Target added successfully. ID: " + nextId);
+        System.out.println("Press Enter to continue...");
+        scanner.nextLine();
 
-        
     }
     
     /**
      * Handles listing all monitored targets.
      */
     private void handleListTargets() {
-        // TODO: implement target listing
-        // - display all targets in a readable format
-        // - show: ID, name, host, timeout, recovery action
-        System.out.println("Listing all monitored targets...");
-        System.out.println("ID | Name | Host | Timeout (s) | Recovery Action");
+        System.out.printf("%-5s %-20s %-30s %-10s %-20s%n", "ID", "Name", "Host", "Timeout", "Recovery");
+        System.out.println("-------------------------------------------------------------------------------");
+
+        for (MonitoredTarget target : targets) {
+            System.out.printf(
+            "%-5d %-20s %-30s %-10d %-20s%n",
+            target.getId(),
+            target.getName(),
+            target.getHost(),
+            target.getTimeout(),
+            target.getRecoveryAction());
+        }
         
     }
     
@@ -190,12 +204,34 @@ public class ConsoleMenu {
         // - print results to console
 
         System.out.println("Running checks on all targets...");
+        if (targets.isEmpty()) {
+            System.out.println("No targets to check.");
+            return;}
+        
         for (MonitoredTarget target : targets) {
-            target.checkAvailability();
+            Monitorable monitor;
+            if (target.getType().equalsIgnoreCase("HTTP")) {
+                monitor = new HttpMonitor(target);
+            } else if (target.getType().equalsIgnoreCase("PING")) {
+                monitor = new PingMonitor(target);
+            } else {
+                System.out.println("Unknown target type for target ID " + target.getId() + ": " + target.getType());
+                continue;
+            }
+            boolean isAvailable = monitor.checkAvailability();
+            long responseTime = monitor.getResponseTime();
+            System.out.printf("Target ID %d (%s): %s, Response Time: %d ms%n",
+                target.getId(),
+                target.getName(),
+                isAvailable ? "ONLINE" : "OFFLINE",
+                responseTime);
+            System.out.println("Press Enter to continue...");
+            scanner.nextLine();
         }
     }
 
     private void handleViewHistory() {
+        System.out.println("Coming soon: monitoring history feature is under development.");
     }
 
     private void handleRemoveTarget() {
@@ -219,6 +255,9 @@ public class ConsoleMenu {
             System.out.println("Error saving changes. Please try again.");
             return;
         }
+        System.out.println("Target removed successfully.");
+        System.out.println("Press Enter to continue...");
+        scanner.nextLine();
     }
     
     /**

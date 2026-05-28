@@ -11,6 +11,7 @@ public class MonitoredTarget {
     
     private int id;
     private String name;
+    private String type;              // HTTP or PING
     private String host;              // URL or hostname
     private int timeout;              // in seconds
     private String recoveryAction;    // command to execute on failure
@@ -19,9 +20,10 @@ public class MonitoredTarget {
     /**
      * Constructor for creating a new monitored target.
      */
-    public MonitoredTarget(int id, String name, String host, int timeout, String recoveryAction) {
+    public MonitoredTarget(int id, String name, String type, String host, int timeout, String recoveryAction) {
         this.id = id;
         this.name = name;
+        this.type = type;
         this.host = host;
         this.timeout = timeout;
         this.recoveryAction = recoveryAction;
@@ -42,6 +44,14 @@ public class MonitoredTarget {
     
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
     
     public String getHost() {
@@ -84,6 +94,7 @@ public class MonitoredTarget {
         return "MonitoredTarget{" +
                 "id='" + id + '\'' +
                 ", name='" + name + '\'' +
+                ", type='" + type + '\'' +
                 ", host='" + host + '\'' +
                 ", timeout=" + timeout +
                 ", recoveryAction='" + recoveryAction + '\'' +
