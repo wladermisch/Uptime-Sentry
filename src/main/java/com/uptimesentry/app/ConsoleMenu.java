@@ -8,6 +8,8 @@ import com.uptimesentry.monitor.HttpMonitor;
 import com.uptimesentry.monitor.Monitorable;
 import com.uptimesentry.monitor.PingMonitor;
 import com.uptimesentry.persistence.TargetRepository;
+import com.uptimesentry.service.AutoCheckService;
+import com.uptimesentry.service.NotificationService;
 import static com.uptimesentry.util.InputValidator.validateHost;
 import static com.uptimesentry.util.InputValidator.validateName;
 import static com.uptimesentry.util.InputValidator.validateTimeout;
@@ -23,12 +25,15 @@ public class ConsoleMenu {
     final private Scanner scanner;
     private List<MonitoredTarget> targets;
     final private java.nio.file.Path filePath = java.nio.file.Paths.get("targets.json");
+    private AutoCheckService autoCheckService;
+    private final NotificationService notificationService;
     
     /**
      * Constructor for initializing the console menu.
      */
     public ConsoleMenu() {
         this.scanner = new Scanner(System.in);
+        this.notificationService = new NotificationService();
     }
     
     /**
@@ -41,6 +46,8 @@ public class ConsoleMenu {
             System.out.println("First Time Setup: No existing configuration found, starting with an empty target list.");
             targets = new java.util.ArrayList<>();
         }
+
+        autoCheckService = new AutoCheckService(targets, 30, notificationService);
 
         boolean running = true;
         while (running) {
@@ -71,6 +78,10 @@ public class ConsoleMenu {
                 default:
                     System.out.println("Invalid option. Please try again.");
             }
+        }
+        
+        if (autoCheckService != null) {
+            autoCheckService.stopAutoChecks();
         }
     }
     
@@ -216,7 +227,49 @@ public class ConsoleMenu {
     }
 
     private void handleAutoChecks() {
-        System.out.println("Coming soon: automatic checks with interval.");
+        if (targets.isEmpty()) {
+            System.out.println("No targets configured. Please add targets first.");
+            return;
+        }
+
+        System.out.println("\n--- Auto Checks Menu ---");
+        System.out.println("1. Start auto-checks");
+        System.out.println("2. Stop auto-checks");
+        System.out.println("3. Set check interval (seconds)");
+        System.out.println("0. Back to main menu");
+        System.out.print("Choose an option: ");
+        
+        String choice = scanner.nextLine().trim();
+        switch (choice) {
+            case "1":
+                autoCheckService.startAutoChecks();
+                System.out.println("Auto-checks started. Monitoring in background...");
+                System.out.println("Press Enter to continue...");
+                scanner.nextLine();
+                break;
+            case "2":
+                autoCheckService.stopAutoChecks();
+                System.out.println("Auto-checks stopped.");
+                System.out.println("Press Enter to continue...");
+                scanner.nextLine();
+                break;
+            case "3":
+                System.out.print("Enter interval in seconds (minimum 1): ");
+                try {
+                    int interval = Integer.parseInt(scanner.nextLine().trim());
+                    autoCheckService.setIntervalSeconds(interval);
+                    System.out.println("Interval set to " + interval + " seconds.");
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid interval. Please enter a numeric value.");
+                }
+                System.out.println("Press Enter to continue...");
+                scanner.nextLine();
+                break;
+            case "0":
+                break;
+            default:
+                System.out.println("Invalid option.");
+        }
     }
 
     private void handleViewHistory() {
