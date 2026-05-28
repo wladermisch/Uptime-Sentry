@@ -38,7 +38,16 @@ Uptime-Sentry enables you to automatically monitor the reachability and performa
 
 ## Getting Started
 
-[Setup instructions coming soon]
+1. **Install Java 21 or later**
+   - Download from [adoptium.net](https://adoptium.net/) or [oracle.com](https://www.oracle.com/java/technologies/downloads/)
+
+2. **Download the JAR**
+   - Get the latest release from [github.com/wladermisch/Uptime-Sentry/releases/latest](https://github.com/wladermisch/Uptime-Sentry/releases/latest)
+
+3. **Run the application**
+   ```
+   java -jar uptimesentry.jar
+   ```
 
 ## Technology Stack
 - **Language**: Java
