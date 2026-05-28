@@ -181,14 +181,17 @@ public class ConsoleMenu {
         System.out.printf("%-5s %-20s %-30s %-10s %-20s%n", "ID", "Name", "Host", "Timeout", "Recovery");
         System.out.println("-------------------------------------------------------------------------------");
 
-        for (MonitoredTarget target : targets) {
-            System.out.printf(
-            "%-5d %-20s %-30s %-10d %-20s%n",
-            target.getId(),
-            target.getName(),
-            target.getHost(),
-            target.getTimeout(),
-            target.getRecoveryAction());
+        if (targets.isEmpty()) {
+            System.out.println("No targets configured.");
+        } else {
+            for (MonitoredTarget target : targets) {
+                System.out.printf("%-5d %-20s %-30s %-10d %-20s%n",
+                    target.getId(),
+                    target.getName(),
+                    target.getHost(),
+                    target.getTimeout(),
+                    target.getRecoveryAction() == null || target.getRecoveryAction().isEmpty() ? "None" : target.getRecoveryAction());
+            }
         }
         
     }
