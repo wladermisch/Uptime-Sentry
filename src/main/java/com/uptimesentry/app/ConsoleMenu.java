@@ -35,11 +35,6 @@ public class ConsoleMenu {
      * Starts the main menu loop. Continues until the user chooses to exit.
      */
     public void loop() {
-        // TODO: implement console menu loop
-        // - display menu options: add target, list targets, run checks, view history, exit
-        // - read user input
-        // - route to appropriate handler methods
-        // - continue until user selects exit
         try {
             targets =TargetRepository.loadTargets(filePath);
         } catch (Exception e) {
@@ -62,9 +57,12 @@ public class ConsoleMenu {
                     handleRunChecks();
                     break;
                 case "4":
-                    handleViewHistory();
+                    handleAutoChecks();
                     break;
                 case "5":
+                    handleViewHistory();
+                    break;
+                case "6":
                     handleRemoveTarget();
                     break;
                 case "0":
@@ -80,20 +78,14 @@ public class ConsoleMenu {
      * Displays the main menu options.
      */
     private void displayMenu() {
-        // TODO: display readable menu options
-        // - (1) Add new target to monitor
-        // - (2) List all monitored targets
-        // - (3) Run a check on all targets
-        // - (4) View monitoring history
-        // - (5) Remove a target
-        // - (0) Exit application
 
         System.out.println("Please select an option:");
         System.out.println("1. Add new target to monitor");
         System.out.println("2. List all monitored targets");
         System.out.println("3. Run a check on all targets");
-        System.out.println("4. View monitoring history");
-        System.out.println("5. Remove a target");
+        System.out.println("4. Auto checks");
+        System.out.println("5. View monitoring history");
+        System.out.println("6. Remove a target");
         System.out.println("0. Exit application");
     }
     
@@ -101,11 +93,6 @@ public class ConsoleMenu {
      * Handles adding a new target via user input.
      */
     private void handleAddTarget() {
-        // TODO: implement interactive target creation
-        // - prompt for: name, host/URL, timeout, recovery action
-        // - validate inputs using InputValidator
-        // - save to targets list
-        // - handle validation errors gracefully
         System.out.println("Adding a new target...");
         System.out.print("Enter target name: ");
         String name = null;
@@ -200,11 +187,6 @@ public class ConsoleMenu {
      * Handles running a check on all targets.
      */
     private void handleRunChecks() {
-        // TODO: implement check execution
-        // - iterate through all targets as Monitorable objects
-        // - call checkAvailability() on each
-        // - store results in history
-        // - print results to console
 
         System.out.println("Running checks on all targets...");
         if (targets.isEmpty()) {
@@ -231,6 +213,10 @@ public class ConsoleMenu {
             System.out.println("Press Enter to continue...");
             scanner.nextLine();
         }
+    }
+
+    private void handleAutoChecks() {
+        System.out.println("Coming soon: automatic checks with interval.");
     }
 
     private void handleViewHistory() {
