@@ -9,7 +9,7 @@ import java.util.List;
  */
 public class MonitoredTarget {
     
-    private String id;
+    private int id;
     private String name;
     private String host;              // URL or hostname
     private int timeout;              // in seconds
@@ -19,7 +19,7 @@ public class MonitoredTarget {
     /**
      * Constructor for creating a new monitored target.
      */
-    public MonitoredTarget(String id, String name, String host, int timeout, String recoveryAction) {
+    public MonitoredTarget(int id, String name, String host, int timeout, String recoveryAction) {
         this.id = id;
         this.name = name;
         this.host = host;
@@ -28,11 +28,11 @@ public class MonitoredTarget {
     }
     
     // Getters and Setters
-    public String getId() {
+    public int getId() {
         return id;
     }
     
-    public void setId(String id) {
+    public void setId(int id) {
         this.id = id;
     }
     
