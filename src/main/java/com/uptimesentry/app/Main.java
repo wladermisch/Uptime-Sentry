@@ -9,20 +9,13 @@ public class Main {
     /**
      * Main method - program entry point.
      * 
-     * @param args command-line arguments (not used in this version)
+     * Prints a welcome message, initializes the console menu, and starts the menu loop.
      */
     public static void main(String[] args) {
         System.out.println("========================================");
         System.out.println("     Welcome to Uptime-Sentry");
         System.out.println("========================================");
         System.out.println();
-        
-        // TODO: initialize application
-        // - create ConsoleMenu instance
-        // - load existing targets from JSON config
-        // - start the menu loop
-        // - handle any startup exceptions
-        // - ensure cleanup on exit
         
         ConsoleMenu menu = new ConsoleMenu();
         try {
