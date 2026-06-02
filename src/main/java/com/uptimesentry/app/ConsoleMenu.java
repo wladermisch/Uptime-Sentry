@@ -197,14 +197,48 @@ public class ConsoleMenu {
     /**
      * Handles running a check on all targets.
      */
+    /**
+     * Handles running a check on all targets.
+     * Adds an optional sorting step so the user can view the results ordered by
+     * name, type, or current online status.
+     */
     private void handleRunChecks() {
-
         System.out.println("Running checks on all targets...");
         if (targets.isEmpty()) {
             System.out.println("No targets to check.");
-            return;}
-        
-        for (MonitoredTarget target : targets) {
+            return;
+        }
+
+        // User can choose to sort results by name, type, or status before displaying.
+        System.out.println("Sort results? (0=none, 1=Name, 2=Type, 3=Status)");
+        System.out.print("Choose an option: ");
+        String sortChoice = scanner.nextLine().trim();
+
+        // Create a mutable copy of the target list so we can sort without affecting the original ordering used elsewhere.
+        java.util.List<MonitoredTarget> sorted = new java.util.ArrayList<>(targets);
+
+        switch (sortChoice) {
+            case "1": // sort by name (alphabetical)
+                java.util.Collections.sort(sorted, java.util.Comparator.comparing(MonitoredTarget::getName, java.lang.String.CASE_INSENSITIVE_ORDER));
+                break;
+            case "2": // sort by type (HTTP / PING)
+                java.util.Collections.sort(sorted, java.util.Comparator.comparing(MonitoredTarget::getType, java.lang.String.CASE_INSENSITIVE_ORDER));
+                break;
+            case "3": // sort by current online status (online first)
+                // Build a temporary map of target‑id → online flag.
+                java.util.Map<Integer, Boolean> statusMap = new java.util.HashMap<>();
+                for (MonitoredTarget t : sorted) {
+                    Monitorable m = t.getType().equalsIgnoreCase("HTTP") ? new HttpMonitor(t) : new PingMonitor(t);
+                    statusMap.put(t.getId(), m.checkAvailability());
+                }
+                // Comparator that puts ONLINE (true) before OFFLINE (false).
+                java.util.Collections.sort(sorted, (a, b) -> Boolean.compare(statusMap.get(b.getId()), statusMap.get(a.getId())));
+                break;
+            default:
+                // No sorting – keep original order.
+                break;
+        }
+        for (MonitoredTarget target : sorted) {
             Monitorable monitor;
             if (target.getType().equalsIgnoreCase("HTTP")) {
                 monitor = new HttpMonitor(target);
@@ -225,7 +259,9 @@ public class ConsoleMenu {
             scanner.nextLine();
         }
     }
-
+    /**
+     * Handles the auto-checks menu, allowing users to start/stop auto-checks and set intervals.
+     */
     private void handleAutoChecks() {
         if (targets.isEmpty()) {
             System.out.println("No targets configured. Please add targets first.");
@@ -271,11 +307,18 @@ public class ConsoleMenu {
                 System.out.println("Invalid option.");
         }
     }
-
+    /**
+     * Handles viewing monitoring history (placeholder for future implementation).
+     * 
+     * For future implementation: this will display a history of checks for each target, including timestamps, status, and response times.
+     * Need to save this to a file.
+     */
     private void handleViewHistory() {
         System.out.println("Coming soon: monitoring history feature is under development.");
     }
-
+    /**
+     * Handles removing a target by ID.
+     */
     private void handleRemoveTarget() {
         System.out.println("Enter the ID of the target to remove: ");
         int idToRemove;
@@ -286,13 +329,13 @@ public class ConsoleMenu {
             return;
         }
         try {
-            targets.removeIf(target -> target.getId() == idToRemove);
+            targets.removeIf(target -> target.getId() == idToRemove); // Will throw if ID not found, which we catch below
         } catch (Exception e) {
             System.out.println("Error removing target, is the ID correct? Please try again.");
             return;
         }
         try {
-            TargetRepository.saveTargets(targets, filePath);
+            TargetRepository.saveTargets(targets, filePath); // Save changes to file after removal
         } catch (Exception e) {
             System.out.println("Error saving changes. Please try again.");
             return;
