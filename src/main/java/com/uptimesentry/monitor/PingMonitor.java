@@ -83,7 +83,23 @@ public class PingMonitor implements Monitorable {
             return;
         }
 
-        // Will implement this later.
-        System.out.println("Recovery action for " + target.getName() + ": " + recoveryAction);
+        if (System.getProperty("os.name").toLowerCase().contains("win")) {
+            System.out.println("Recovery action for " + target.getName() + ": " + recoveryAction);
+
+            try {
+                // Wir splitten den Befehl auf: cmd.exe, /c, und die eigentliche Action
+                ProcessBuilder pb = new ProcessBuilder("cmd", "/c", recoveryAction);
+                pb.inheritIO();
+                Process process = pb.start();
+                int exitCode = process.waitFor();
+                
+                if (exitCode != 0) {
+                    System.out.println("Process exited with error code: " + exitCode);
+                }
+
+            } catch (Exception e) {
+                System.out.println("Failed to execute recovery action: " + e.getMessage());
+            }
+        }
     }
 }

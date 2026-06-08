@@ -232,9 +232,10 @@ public class ConsoleMenu {
                 target.getName(),
                 isAvailable ? "ONLINE" : "OFFLINE",
                 responseTime);
-            System.out.println("Press Enter to continue...");
-            scanner.nextLine();
+            
         }
+        System.out.println("Press Enter to continue...");
+        scanner.nextLine();
     }
     /**
      * Handles the auto-checks menu, allowing users to start/stop auto-checks and set intervals.

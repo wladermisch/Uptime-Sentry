@@ -17,8 +17,7 @@ public class HttpMonitor implements Monitorable {
     
     /**
      * Constructor for creating an HttpMonitor.
-     * 
-     * @param target the target configuration to monitor
+     * * @param target the target configuration to monitor
      */
     public HttpMonitor(MonitoredTarget target) {
         this.target = target;
@@ -28,8 +27,7 @@ public class HttpMonitor implements Monitorable {
     /**
      * Checks the availability of an HTTP target by sending a request and checking
      * the response code. Returns true for success codes (e.g., 200), false for errors.
-     * 
-     * @return true if available, false otherwise
+     * * @return true if available, false otherwise
      */
     @Override
     public boolean checkAvailability() {
@@ -66,8 +64,7 @@ public class HttpMonitor implements Monitorable {
     
     /**
      * Returns the response time of the last check in milliseconds.
-     * 
-     * @return response time in milliseconds
+     * * @return response time in milliseconds
      */
     @Override
     public long getResponseTime() {
@@ -76,8 +73,7 @@ public class HttpMonitor implements Monitorable {
     
     /**
      * Returns the configured timeout for this target.
-     * 
-     * @return timeout in seconds
+     * * @return timeout in seconds
      */
     @Override
     public int getTimeout() {
@@ -96,7 +92,23 @@ public class HttpMonitor implements Monitorable {
             return;
         }
 
-        // Will implement this later.
-        System.out.println("Recovery action for " + target.getName() + ": " + recoveryAction);
+        if (System.getProperty("os.name").toLowerCase().contains("win")) {
+            System.out.println("Recovery action for " + target.getName() + ": " + recoveryAction);
+
+            try {
+                // Wir splitten den Befehl auf: cmd.exe, /c, und die eigentliche Action
+                ProcessBuilder pb = new ProcessBuilder("cmd", "/c", recoveryAction);
+                pb.inheritIO();
+                Process process = pb.start();
+                int exitCode = process.waitFor();
+                
+                if (exitCode != 0) {
+                    System.out.println("Process exited with error code: " + exitCode);
+                }
+
+            } catch (Exception e) {
+                System.out.println("Failed to execute recovery action: " + e.getMessage());
+            }
+        }
     }
 }

@@ -98,6 +98,11 @@ public class AutoCheckService {
                         notificationService.notifyRecovery(target);
                     } else {
                         notificationService.notifyFailure(target);
+                        try {
+                            monitor.executeRecovery();
+                        } catch (Exception e) {
+                            System.out.println("Recovery command failed: " + e.getMessage());
+                        }
                     }
                 }
                 lastStatusById.put(target.getId(), online);
