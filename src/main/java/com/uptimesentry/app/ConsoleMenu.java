@@ -193,10 +193,7 @@ public class ConsoleMenu {
         }
         
     }
-    
-    /**
-     * Handles running a check on all targets.
-     */
+
     /**
      * Handles running a check on all targets.
      * Adds an optional sorting step so the user can view the results ordered by
