@@ -4,7 +4,7 @@ import com.uptimesentry.exception.ValidationException;
 
 /**
  * InputValidator provides centralized validation methods for user input.
- * Throws ValidationException for invalid input, enabling DAU-sicher (fool-proof) behavior.
+ * Throws ValidationException for invalid input, enabling DAU-sicher behavior.
  */
 public class InputValidator {
     

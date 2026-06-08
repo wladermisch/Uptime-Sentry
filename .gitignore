@@ -46,3 +46,6 @@ plan.md
 
 # Release artifacts
 releases/
+
+# App Generated Files
+targets.json

@@ -14,6 +14,7 @@ import static com.uptimesentry.util.InputValidator.validateHost;
 import static com.uptimesentry.util.InputValidator.validateName;
 import static com.uptimesentry.util.InputValidator.validateTimeout;
 import static com.uptimesentry.util.InputValidator.validateUrl;
+import com.uptimesentry.util.Sort;
 
 
 /**
@@ -206,35 +207,13 @@ public class ConsoleMenu {
             return;
         }
 
-        // User can choose to sort results by name, type, or status before displaying.
+        // Ask the user which sorting option they want.
         System.out.println("Sort results? (0=none, 1=Name, 2=Type, 3=Status)");
         System.out.print("Choose an option: ");
         String sortChoice = scanner.nextLine().trim();
 
-        // Create a mutable copy of the target list so we can sort without affecting the original ordering used elsewhere.
-        java.util.List<MonitoredTarget> sorted = new java.util.ArrayList<>(targets);
-
-        switch (sortChoice) {
-            case "1": // sort by name (alphabetical)
-                java.util.Collections.sort(sorted, java.util.Comparator.comparing(MonitoredTarget::getName, java.lang.String.CASE_INSENSITIVE_ORDER));
-                break;
-            case "2": // sort by type (HTTP / PING)
-                java.util.Collections.sort(sorted, java.util.Comparator.comparing(MonitoredTarget::getType, java.lang.String.CASE_INSENSITIVE_ORDER));
-                break;
-            case "3": // sort by current online status (online first)
-                // Build a temporary map of target‑id → online flag.
-                java.util.Map<Integer, Boolean> statusMap = new java.util.HashMap<>();
-                for (MonitoredTarget t : sorted) {
-                    Monitorable m = t.getType().equalsIgnoreCase("HTTP") ? new HttpMonitor(t) : new PingMonitor(t);
-                    statusMap.put(t.getId(), m.checkAvailability());
-                }
-                // Comparator that puts ONLINE (true) before OFFLINE (false).
-                java.util.Collections.sort(sorted, (a, b) -> Boolean.compare(statusMap.get(b.getId()), statusMap.get(a.getId())));
-                break;
-            default:
-                // No sorting – keep original order.
-                break;
-        }
+        // Delegate the sorting to the utility class. It returns a new list.
+        java.util.List<MonitoredTarget> sorted = Sort.sort(targets, sortChoice);
         for (MonitoredTarget target : sorted) {
             Monitorable monitor;
             if (target.getType().equalsIgnoreCase("HTTP")) {
