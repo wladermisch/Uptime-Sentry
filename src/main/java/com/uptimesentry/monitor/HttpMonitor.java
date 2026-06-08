@@ -12,7 +12,7 @@ import com.uptimesentry.model.MonitoredTarget;
  */
 public class HttpMonitor implements Monitorable {
     
-    private MonitoredTarget target;
+    private final MonitoredTarget target;
     private long lastResponseTime;
     
     /**

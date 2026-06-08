@@ -107,7 +107,7 @@ public class ConsoleMenu {
     private void handleAddTarget() {
         System.out.println("Adding a new target...");
         System.out.print("Enter target name: ");
-        String name = null;
+        String name; // declaration without unnecessary initialization
         try {
             name = validateName(scanner.nextLine().trim());
         } catch (Exception e) {
@@ -118,30 +118,31 @@ public class ConsoleMenu {
         String choice = scanner.nextLine().trim();
         String hostOrUrl;
         String targetType;
-        if (choice.equals("1")) {
-            targetType = "PING";
-            System.out.print("Enter host/IP: ");
-            try {
-                hostOrUrl = validateHost(scanner.nextLine().trim());
-            } catch (Exception e) {
-                System.out.println("Invalid host/IP. Please try again.");
+        switch (choice) {
+            case "1":
+                targetType = "PING";
+                System.out.print("Enter host/IP: ");
+                try {
+                    hostOrUrl = validateHost(scanner.nextLine().trim());
+                } catch (Exception e) {
+                    System.out.println("Invalid host/IP. Please try again.");
+                    return;
+                }   break;
+            case "2":
+                targetType = "HTTP";
+                System.out.print("Enter URL: ");
+                try {
+                    hostOrUrl = validateUrl(scanner.nextLine().trim());
+                } catch (Exception e) {
+                    System.out.println("Invalid URL. Please try again.");
+                    return;
+                }   break;
+            default:
+                System.out.println("Invalid option. Please try again.");
                 return;
-            }
-        } else if (choice.equals("2")) {
-            targetType = "HTTP";
-            System.out.print("Enter URL: ");
-            try {
-                hostOrUrl = validateUrl(scanner.nextLine().trim());
-            } catch (Exception e) {
-                System.out.println("Invalid URL. Please try again.");
-                return;
-            }
-        } else {
-            System.out.println("Invalid option. Please try again.");
-            return;
         }
 
-        int timeout = 0;
+        int timeout;
         System.out.print("Enter timeout (seconds): ");
         try {
             int timeoutValue = Integer.parseInt(scanner.nextLine().trim());

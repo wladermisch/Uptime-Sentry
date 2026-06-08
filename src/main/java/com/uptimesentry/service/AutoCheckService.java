@@ -18,9 +18,9 @@ public class AutoCheckService {
 
     private int intervalSeconds;
     private volatile boolean running;
-    private List<MonitoredTarget> targets;
-    private NotificationService notificationService;
-    private Map<Integer, Boolean> lastStatusById = new ConcurrentHashMap<>();
+    private final List<MonitoredTarget> targets;
+    private final NotificationService notificationService;
+    private final Map<Integer, Boolean> lastStatusById = new ConcurrentHashMap<>();
 
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> scheduledTask;

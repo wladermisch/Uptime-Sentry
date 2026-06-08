@@ -9,7 +9,7 @@ import com.uptimesentry.model.MonitoredTarget;
  */
 public class PingMonitor implements Monitorable {
     
-    private MonitoredTarget target;
+    private final MonitoredTarget target;
     private long lastResponseTime;
     
     /**
