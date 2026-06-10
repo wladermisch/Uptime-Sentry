@@ -118,6 +118,7 @@ public class ConsoleMenu {
         String choice = scanner.nextLine().trim();
         String hostOrUrl;
         String targetType;
+        List<Integer> acceptableStatusCodes = null; // Only relevant for HTTP targets
         switch (choice) {
             case "1":
                 targetType = "PING";
@@ -136,7 +137,23 @@ public class ConsoleMenu {
                 } catch (Exception e) {
                     System.out.println("Invalid URL. Please try again.");
                     return;
-                }   break;
+                }
+                System.out.print("Enter acceptable HTTP status codes (comma-separated, e.g., 200, 201) or leave blank for default 200: ");
+                String codesInput = scanner.nextLine().trim();
+                if (!codesInput.isEmpty()) {
+                    acceptableStatusCodes = new java.util.ArrayList<>();
+                    String[] tokens = codesInput.split(",");
+                    for (String token : tokens) {
+                        try {
+                            int code = Integer.parseInt(token.trim());
+                            acceptableStatusCodes.add(code);
+                        } catch (NumberFormatException e) {
+                            System.out.println("Warning: '" + token.trim() + "' is not a valid status code and was skipped.");
+                        }
+                    }
+                }
+                
+                break;
             default:
                 System.out.println("Invalid option. Please try again.");
                 return;
@@ -160,7 +177,7 @@ public class ConsoleMenu {
                 nextId++;
             }
         }
-        targets.add(new MonitoredTarget(nextId, name, targetType, hostOrUrl, timeout, recoveryAction));
+        targets.add(new MonitoredTarget(nextId, name, targetType, hostOrUrl, timeout, recoveryAction, acceptableStatusCodes));
         try {
             TargetRepository.saveTargets(targets, filePath);
         } catch (Exception e) {

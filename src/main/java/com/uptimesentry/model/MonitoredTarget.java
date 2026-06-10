@@ -20,13 +20,14 @@ public class MonitoredTarget {
     /**
      * Constructor for creating a new monitored target.
      */
-    public MonitoredTarget(int id, String name, String type, String host, int timeout, String recoveryAction) {
+    public MonitoredTarget(int id, String name, String type, String host, int timeout, String recoveryAction, List<Integer> acceptableStatusCodes) {
         this.id = id;
         this.name = name;
         this.type = type;
         this.host = host;
         this.timeout = timeout;
         this.recoveryAction = recoveryAction;
+        this.acceptableStatusCodes = acceptableStatusCodes;
     }
     
     // Getters and Setters
