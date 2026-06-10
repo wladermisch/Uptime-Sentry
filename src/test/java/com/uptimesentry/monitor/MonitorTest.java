@@ -34,7 +34,7 @@ class MonitorTest {
     @BeforeAll
     static void setUpBeforeClass() throws Exception {
 		//Adding TestTarget to targetlist and saving it to file for testing
-        targets.add(new MonitoredTarget(10, "Test Target", "PING", "141.56.16.35", 10, null));
+        targets.add(new MonitoredTarget(10, "Test Target", "PING", "141.56.16.35", 10, null, null));
         
         try {
             TargetRepository.saveTargets(targets, filePath);

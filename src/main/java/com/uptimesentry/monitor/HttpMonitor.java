@@ -62,19 +62,13 @@ public class HttpMonitor implements Monitorable {
         }
     }
     
-    /**
-     * Returns the response time of the last check in milliseconds.
-     * * @return response time in milliseconds
-     */
+
     @Override
     public long getResponseTime() {
         return lastResponseTime;
     }
     
-    /**
-     * Returns the configured timeout for this target.
-     * * @return timeout in seconds
-     */
+
     @Override
     public int getTimeout() {
         return target.getTimeout();
@@ -82,6 +76,10 @@ public class HttpMonitor implements Monitorable {
     
     /**
      * Executes recovery action on failure (e.g., print alert, run command).
+     * With ProcessBuilder.
+     * WARNING: Security Vulnerability due to external commands being executed. should be withelisted in the future.
+     * targets.json can be abused to execute harmful commands.
+     * Only works on Windows for now, since ProcessBuilder is used with "cmd /c". For cross-platform support, this would need to be adapted.
      */
     @Override
     public void executeRecovery() {
@@ -96,7 +94,7 @@ public class HttpMonitor implements Monitorable {
             System.out.println("Recovery action for " + target.getName() + ": " + recoveryAction);
 
             try {
-                // Wir splitten den Befehl auf: cmd.exe, /c, und die eigentliche Action
+                // Split the command into parts for ProcessBuilder, so it gets executed properly (e.g., "cmd /c yourcommand")
                 ProcessBuilder pb = new ProcessBuilder("cmd", "/c", recoveryAction);
                 pb.inheritIO();
                 Process process = pb.start();

@@ -87,9 +87,7 @@ public class MonitoredTarget {
         this.acceptableStatusCodes = acceptableStatusCodes;
     }
 
-    /**
-     * Provides a readable overview of the target's attributes.
-     */
+    // Provide a toString() method for easy logging and debugging
     @Override
     public String toString() {
         return "MonitoredTarget{" +

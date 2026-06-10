@@ -23,7 +23,7 @@ public class InputValidator {
             throw new ValidationException("URL must start with http:// or https://");
         }
         try {
-            new java.net.URL(urlString);
+            new java.net.URL(urlString); // This will throw MalformedURLException if the URL is not valid, which we catch and rethrow as ValidationException with a user-friendly message.
         } catch (java.net.MalformedURLException e) {
             throw new ValidationException("URL is malformed.");
         }

@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 
 /**
  * CheckResult stores the outcome of a single monitoring check.
- * This is an immutable value object used in collections for history/reporting.
  * 
  * When a check fails, durationMillis is set to -1, and the message can contain error details.
  */
@@ -15,9 +14,7 @@ public class CheckResult {
     private final long durationMillis;
     private final String message;
     
-    /**
-     * Constructor for creating a check result.
-     */
+    //Constructor for creating a new CheckResult
     public CheckResult(LocalDateTime timestamp, boolean success, long durationMillis, String message) {
         this.timestamp = timestamp;
         this.success = success;
@@ -25,7 +22,7 @@ public class CheckResult {
         this.message = message;
     }
     
-    // Getters (immutable, no setters)
+    // Getters (no setters, since only CheckResult)
     public LocalDateTime getTimestamp() {
         return timestamp;
     }
@@ -42,9 +39,7 @@ public class CheckResult {
         return message;
     }
     
-    /**
-     * Provides a readable overview of the check result.
-     */
+    //Provide a toString() method for easy logging and debugging
     @Override
     public String toString() {
         return "CheckResult{" +

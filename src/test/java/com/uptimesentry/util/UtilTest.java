@@ -33,9 +33,9 @@ public class UtilTest {
     @BeforeAll
     static void setUpBeforeClass() {
         // Target that should be online (htw-dresden.de)
-        targets.add(new MonitoredTarget(1, "OnlineTarget", "PING", "141.56.16.35", 5, ""));
+        targets.add(new MonitoredTarget(1, "OnlineTarget", "PING", "141.56.16.35", 5, "", null));
         // Target that should be offline
-        targets.add(new MonitoredTarget(2, "OfflineTarget", "PING", "240.0.0.1", 5, ""));
+        targets.add(new MonitoredTarget(2, "OfflineTarget", "PING", "240.0.0.1", 5, "", null));
 
         try {
             TargetRepository.saveTargets(targets, filePath);

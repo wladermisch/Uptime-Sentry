@@ -10,7 +10,7 @@ import com.uptimesentry.monitor.PingMonitor;
 import com.uptimesentry.persistence.TargetRepository;
 import com.uptimesentry.service.AutoCheckService;
 import com.uptimesentry.service.NotificationService;
-import static com.uptimesentry.util.InputValidator.validateHost;
+import static com.uptimesentry.util.InputValidator.validateHost; //static import so we can call validateHost() directly without class name prefix
 import static com.uptimesentry.util.InputValidator.validateName;
 import static com.uptimesentry.util.InputValidator.validateTimeout;
 import static com.uptimesentry.util.InputValidator.validateUrl;
@@ -25,30 +25,30 @@ public class ConsoleMenu {
     
     final private Scanner scanner;
     private List<MonitoredTarget> targets;
-    final private java.nio.file.Path filePath = java.nio.file.Paths.get("targets.json");
+    
+    final private java.nio.file.Path filePath = java.nio.file.Paths.get(TARGETS_FILE);
     private AutoCheckService autoCheckService;
     private final NotificationService notificationService;
+
+    private static final int AUTOCHECK_INTERVAL_SECONDS = 5;
+    private static final String TARGETS_FILE = "targets.json";
     
-    /**
-     * Constructor for initializing the console menu.
-     */
+    //Constructor initializes scanner and notification service.
     public ConsoleMenu() {
         this.scanner = new Scanner(System.in);
         this.notificationService = new NotificationService();
     }
     
-    /**
-     * Starts the main menu loop. Continues until the user chooses to exit.
-     */
+    //Main loop of the console menu
     public void loop() {
         try {
-            targets =TargetRepository.loadTargets(filePath);
+            targets =TargetRepository.loadTargets(filePath); //If file does not exist.
         } catch (Exception e) {
             System.out.println("First Time Setup: No existing configuration found, starting with an empty target list.");
             targets = new java.util.ArrayList<>();
         }
 
-        autoCheckService = new AutoCheckService(targets, 30, notificationService);
+        autoCheckService = new AutoCheckService(targets, AUTOCHECK_INTERVAL_SECONDS, notificationService);
 
         boolean running = true;
         while (running) {
@@ -86,9 +86,7 @@ public class ConsoleMenu {
         }
     }
     
-    /**
-     * Displays the main menu options.
-     */
+    //Displays the main menu options to the user.
     private void displayMenu() {
 
         System.out.println("Please select an option:");
@@ -101,9 +99,7 @@ public class ConsoleMenu {
         System.out.println("0. Exit application");
     }
     
-    /**
-     * Handles adding a new target via user input.
-     */
+    //Handles adding a new target, including input validation and saving to file.
     private void handleAddTarget() {
         System.out.println("Adding a new target...");
         System.out.print("Enter target name: ");
@@ -116,7 +112,7 @@ public class ConsoleMenu {
         }
         System.out.print("Host/IP (1) or URL (2)? ");
         String choice = scanner.nextLine().trim();
-        String hostOrUrl;
+        String hostOrUrl; //one variable to save either host or URL, depending on the type of target
         String targetType;
         List<Integer> acceptableStatusCodes = null; // Only relevant for HTTP targets
         switch (choice) {
@@ -138,6 +134,7 @@ public class ConsoleMenu {
                     System.out.println("Invalid URL. Please try again.");
                     return;
                 }
+                //Allowed statuscodes for HTTP targets:
                 System.out.print("Enter acceptable HTTP status codes (comma-separated, e.g., 200, 201) or leave blank for default 200: ");
                 String codesInput = scanner.nextLine().trim();
                 if (!codesInput.isEmpty()) {
@@ -191,9 +188,7 @@ public class ConsoleMenu {
 
     }
     
-    /**
-     * Handles listing all monitored targets.
-     */
+    //Handles listing all monitored targets in a formatted table.
     private void handleListTargets() {
         System.out.printf("%-5s %-20s %-30s %-10s %-20s%n", "ID", "Name", "Host", "Timeout", "Recovery");
         System.out.println("-------------------------------------------------------------------------------");
@@ -230,7 +225,7 @@ public class ConsoleMenu {
         System.out.print("Choose an option: ");
         String sortChoice = scanner.nextLine().trim();
 
-        // Delegate the sorting to the utility class. It returns a new list.
+        // Sorting happens in the Sort class, which returns a new sorted list based on the user's choice.
         java.util.List<MonitoredTarget> sorted = Sort.sort(targets, sortChoice);
         for (MonitoredTarget target : sorted) {
             Monitorable monitor;
@@ -254,9 +249,7 @@ public class ConsoleMenu {
         System.out.println("Press Enter to continue...");
         scanner.nextLine();
     }
-    /**
-     * Handles the auto-checks menu, allowing users to start/stop auto-checks and set intervals.
-     */
+    //Handles starting/stopping auto-checks and setting the check interval.
     private void handleAutoChecks() {
         if (targets.isEmpty()) {
             System.out.println("No targets configured. Please add targets first.");
@@ -311,9 +304,7 @@ public class ConsoleMenu {
     private void handleViewHistory() {
         System.out.println("Coming soon: monitoring history feature is under development.");
     }
-    /**
-     * Handles removing a target by ID.
-     */
+    //Handles removing a target by ID, including input validation and saving changes to file.
     private void handleRemoveTarget() {
         System.out.println("Enter the ID of the target to remove: ");
         int idToRemove;
@@ -324,7 +315,7 @@ public class ConsoleMenu {
             return;
         }
         try {
-            targets.removeIf(target -> target.getId() == idToRemove); // Will throw if ID not found, which we catch below
+            targets.removeIf(target -> target.getId() == idToRemove); // Will throw if ID not found
         } catch (Exception e) {
             System.out.println("Error removing target, is the ID correct? Please try again.");
             return;
@@ -340,9 +331,7 @@ public class ConsoleMenu {
         scanner.nextLine();
     }
     
-    /**
-     * Closes the menu (cleanup).
-     */
+    //End loop and close scanner.
     public void close() {
         if (scanner != null) {
             scanner.close();

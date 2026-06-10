@@ -12,7 +12,7 @@ import com.uptimesentry.model.MonitoredTarget;
 
 public class NotificationService {
 
-    private final TrayIcon trayIcon;
+    private final TrayIcon trayIcon; // We use a TrayIcon for desktop notifications. If SystemTray is not supported, this will be null and we will fallback to console output.
 
     public NotificationService() {
         this.trayIcon = SystemTray.isSupported() ? createTrayIcon() : null;
@@ -33,7 +33,7 @@ public class NotificationService {
     public void notifyOnline(MonitoredTarget target) {
         sendNotification("Target online", target.getName() + " is online.", TrayIcon.MessageType.INFO);
     }
-
+    // Helper method to send a notification. If trayIcon is available, it uses that, otherwise it falls back to printing to the console.
     private void sendNotification(String title, String message, TrayIcon.MessageType messageType) {
         if (trayIcon != null) {
             trayIcon.displayMessage(title, message, messageType);
@@ -42,7 +42,7 @@ public class NotificationService {
 
         System.out.println(title + ": " + message);
     }
-
+    // Helper method to create a TrayIcon. It loads an image from the resources and adds it to the system tray. If any step fails, it returns null, which indicates that desktop notifications are not available.
     private TrayIcon createTrayIcon() {
         Image image = createTrayImage();
         if (image == null) {
@@ -60,7 +60,7 @@ public class NotificationService {
 
         return icon;
     }
-
+    // Helper method to load the tray icon image from the resources. It attempts to read the image file and returns it. If it fails (e.g., file not found), it returns null.
     private Image createTrayImage() {
         try {
             return ImageIO.read(getClass().getResource("/icons/tray-16.png"));

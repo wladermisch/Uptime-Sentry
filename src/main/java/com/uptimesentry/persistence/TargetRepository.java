@@ -27,18 +27,18 @@ public class TargetRepository {
      */
     public static List<MonitoredTarget> loadTargets(Path filePath) throws Exception {
         if (filePath == null) {
-            return new ArrayList<>();
+            return new ArrayList<>(); //Create empty list if no file path is provided
         }
 
         if (!Files.exists(filePath)) {
-            return new ArrayList<>();
+            return new ArrayList<>(); //Create empty list if file does not exist (first run)
         }
 
         String json = Files.readString(filePath);
 
         Gson gson = new Gson();
-        Type listType = new TypeToken<List<MonitoredTarget>>() {}.getType();
-        List<MonitoredTarget> list = gson.fromJson(json, listType);
+        Type listType = new TypeToken<List<MonitoredTarget>>() {}.getType(); // TypeToken is used to get the correct generic type for deserialization, else gson does not know what type of list to create and will return wrong object instead of MonitoredTarget objects.
+        List<MonitoredTarget> list = gson.fromJson(json, listType); // Deserialize(Load from file to memory) JSON to List<MonitoredTarget>
         return list != null ? list : new ArrayList<>();
     }
     
@@ -54,11 +54,11 @@ public class TargetRepository {
             throw new IllegalArgumentException("filePath must not be null");
         }
 
-        Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        String json = gson.toJson(targets != null ? targets : new ArrayList<>());
+        Gson gson = new GsonBuilder().setPrettyPrinting().create(); 
+        String json = gson.toJson(targets != null ? targets : new ArrayList<>()); // Serialize(Save from memory to file) List<MonitoredTarget> to JSON. If targets is null, we save an empty list instead of null, to avoid issues when loading later.
 
         if (filePath.getParent() != null) {
-            Files.createDirectories(filePath.getParent());
+            Files.createDirectories(filePath.getParent()); // Ensure parent directories exist, otherwise writing to file will fail if the directory does not exist. This is a safeguard for cases where the user might specify a path with non-existing directories.
         }
 
         Files.writeString(filePath, json, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);

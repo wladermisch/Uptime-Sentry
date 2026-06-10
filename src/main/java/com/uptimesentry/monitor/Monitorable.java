@@ -5,7 +5,7 @@ package com.uptimesentry.monitor;
  * (HTTP services, network devices via ping, etc.). Implementations must provide methods
  * to check availability, retrieve response times, and execute recovery actions on failure.
  * 
- * This interface enables polymorphism: the main application can work with a List<Monitorable>
+ * The main application can work with a List<Monitorable>
  * without needing to know whether each target is an HttpMonitor or a PingMonitor.
  */
 public interface Monitorable {
