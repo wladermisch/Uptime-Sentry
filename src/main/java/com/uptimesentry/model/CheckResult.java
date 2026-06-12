@@ -4,7 +4,8 @@ import java.time.LocalDateTime;
 
 /**
  * CheckResult stores the outcome of a single monitoring check.
- * 
+ * This is currently not in use but is needed for future features like historical data storage and reporting.
+ * It contains the timestamp of the check, whether it was successful, the duration of the check.
  * When a check fails, durationMillis is set to -1, and the message can contain error details.
  */
 public class CheckResult {
