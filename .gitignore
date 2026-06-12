@@ -50,3 +50,4 @@ releases/
 # App Generated Files
 targets.json
 targets.json.bak
+targets.json.example
