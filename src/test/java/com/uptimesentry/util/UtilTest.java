@@ -76,5 +76,10 @@ public class UtilTest {
         assertEquals("OfflineTarget", sorted.get(1).getName(), "Expected the offline target to be second in the sorted list.");
         assertThrows(ValidationException.class, () -> validateUrl("htps://example.com"), "Expected validateUrl to throw ValidationException for an invalid URL.");
         assertDoesNotThrow(() -> validateUrl("https://example.com"), "Expected validateUrl to not throw an exception for a valid URL.");
-        }
+
+        // Test failure threshold field
+        assertEquals(1, targets.get(0).getConsecutiveFailuresLimit());
+        targets.get(0).setConsecutiveFailuresLimit(3);
+        assertEquals(3, targets.get(0).getConsecutiveFailuresLimit());
+    }
     }

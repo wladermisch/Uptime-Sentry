@@ -16,11 +16,19 @@ public class MonitoredTarget {
     private int timeout;              // in seconds
     private String recoveryAction;    // command to execute on failure
     private List<Integer> acceptableStatusCodes; // for HTTP targets, e.g., [200, 201]
+    private int consecutiveFailuresLimit = 1; // consecutive failures before alerting
     
     /**
      * Constructor for creating a new monitored target.
      */
     public MonitoredTarget(int id, String name, String type, String host, int timeout, String recoveryAction, List<Integer> acceptableStatusCodes) {
+        this(id, name, type, host, timeout, recoveryAction, acceptableStatusCodes, 1);
+    }
+
+    /**
+     * Overloaded constructor supporting failure threshold.
+     */
+    public MonitoredTarget(int id, String name, String type, String host, int timeout, String recoveryAction, List<Integer> acceptableStatusCodes, int consecutiveFailuresLimit) {
         this.id = id;
         this.name = name;
         this.type = type;
@@ -28,6 +36,7 @@ public class MonitoredTarget {
         this.timeout = timeout;
         this.recoveryAction = recoveryAction;
         this.acceptableStatusCodes = acceptableStatusCodes;
+        this.consecutiveFailuresLimit = consecutiveFailuresLimit;
     }
     
     // Getters and Setters
@@ -87,6 +96,14 @@ public class MonitoredTarget {
         this.acceptableStatusCodes = acceptableStatusCodes;
     }
 
+    public int getConsecutiveFailuresLimit() {
+        return consecutiveFailuresLimit <= 0 ? 1 : consecutiveFailuresLimit;
+    }
+
+    public void setConsecutiveFailuresLimit(int consecutiveFailuresLimit) {
+        this.consecutiveFailuresLimit = consecutiveFailuresLimit;
+    }
+
     // Provide a toString() method for easy logging and debugging
     @Override
     public String toString() {
@@ -97,6 +114,7 @@ public class MonitoredTarget {
                 ", host='" + host + '\'' +
                 ", timeout=" + timeout +
                 ", recoveryAction='" + recoveryAction + '\'' +
+                ", consecutiveFailuresLimit=" + consecutiveFailuresLimit +
                 '}';
     }
 }

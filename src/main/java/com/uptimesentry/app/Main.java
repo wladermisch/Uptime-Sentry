@@ -1,5 +1,7 @@
 package com.uptimesentry.app;
 
+import com.uptimesentry.util.SentryLogger;
+
 /**
  * Main is the application entry point.
  * It initializes the application and starts the console menu loop.
@@ -12,6 +14,8 @@ public class Main {
      * Prints a welcome message, initializes the console menu, and starts the menu loop.
      */
     public static void main(String[] args) {
+        SentryLogger.info("Uptime-Sentry starting...", false);
+
         System.out.println("========================================");
         System.out.println("     Welcome to Uptime-Sentry");
         System.out.println("========================================");
@@ -23,6 +27,7 @@ public class Main {
         } finally {
             menu.close();
             System.out.println("\nGoodbye!");
+            SentryLogger.info("Uptime-Sentry stopped.", false);
         }
     }
 }

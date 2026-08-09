@@ -1,22 +1,23 @@
 package com.uptimesentry.model;
 
-import java.time.LocalDateTime;
-
 /**
  * CheckResult stores the outcome of a single monitoring check.
- * This is currently not in use but is needed for future features like historical data storage and reporting.
  * It contains the timestamp of the check, whether it was successful, the duration of the check.
  * When a check fails, durationMillis is set to -1, and the message can contain error details.
  */
 public class CheckResult {
     
-    private final LocalDateTime timestamp;
+    private final int targetId;
+    private final String targetName;
+    private final String timestamp;
     private final boolean success;
     private final long durationMillis;
     private final String message;
     
     //Constructor for creating a new CheckResult
-    public CheckResult(LocalDateTime timestamp, boolean success, long durationMillis, String message) {
+    public CheckResult(int targetId, String targetName, String timestamp, boolean success, long durationMillis, String message) {
+        this.targetId = targetId;
+        this.targetName = targetName;
         this.timestamp = timestamp;
         this.success = success;
         this.durationMillis = durationMillis;
@@ -24,7 +25,15 @@ public class CheckResult {
     }
     
     // Getters (no setters, since only CheckResult)
-    public LocalDateTime getTimestamp() {
+    public int getTargetId() {
+        return targetId;
+    }
+
+    public String getTargetName() {
+        return targetName;
+    }
+
+    public String getTimestamp() {
         return timestamp;
     }
     
@@ -44,7 +53,9 @@ public class CheckResult {
     @Override
     public String toString() {
         return "CheckResult{" +
-                "timestamp=" + timestamp +
+                "targetId=" + targetId +
+                ", targetName='" + targetName + '\'' +
+                ", timestamp='" + timestamp + '\'' +
                 ", success=" + success +
                 ", durationMillis=" + durationMillis +
                 ", message='" + message + '\'' +

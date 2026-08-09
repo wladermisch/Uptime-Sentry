@@ -15,6 +15,11 @@ import static com.uptimesentry.util.InputValidator.validateName;
 import static com.uptimesentry.util.InputValidator.validateTimeout;
 import static com.uptimesentry.util.InputValidator.validateUrl;
 import com.uptimesentry.util.Sort;
+import com.uptimesentry.util.SentryLogger;
+import com.uptimesentry.persistence.HistoryRepository;
+import com.uptimesentry.model.CheckResult;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 
 /**
@@ -42,11 +47,29 @@ public class ConsoleMenu {
     //Main loop of the console menu
     public void loop() {
         try {
-            targets =TargetRepository.loadTargets(filePath); //If file does not exist.
+            targets = TargetRepository.loadTargets(filePath); //If file does not exist.
+            SentryLogger.info("Loaded " + targets.size() + " targets from configuration.");
         } catch (Exception e) {
             System.out.println("First Time Setup: No existing configuration found, starting with an empty target list.");
+            SentryLogger.warn("No existing configuration found. Initializing empty list.");
             targets = new java.util.ArrayList<>();
         }
+
+        // Print startup summary
+        int pingCount = 0;
+        int httpCount = 0;
+        for (MonitoredTarget t : targets) {
+            if ("HTTP".equalsIgnoreCase(t.getType())) {
+                httpCount++;
+            } else if ("PING".equalsIgnoreCase(t.getType())) {
+                pingCount++;
+            }
+        }
+        System.out.println("----------------------------------------");
+        System.out.println("Active monitoring tasks loaded:");
+        System.out.println("- PING targets: " + pingCount);
+        System.out.println("- HTTP targets: " + httpCount);
+        System.out.println("----------------------------------------");
 
         autoCheckService = new AutoCheckService(targets, AUTOCHECK_INTERVAL_SECONDS, notificationService);
 
@@ -73,6 +96,9 @@ public class ConsoleMenu {
                 case "6":
                     handleRemoveTarget();
                     break;
+                case "7":
+                    handleEditTarget();
+                    break;
                 case "0":
                     running = false;
                     break;
@@ -88,14 +114,14 @@ public class ConsoleMenu {
     
     //Displays the main menu options to the user.
     private void displayMenu() {
-
-        System.out.println("Please select an option:");
+        System.out.println("\nPlease select an option:");
         System.out.println("1. Add new target to monitor");
         System.out.println("2. List all monitored targets");
         System.out.println("3. Run a check on all targets");
         System.out.println("4. Auto checks");
         System.out.println("5. View monitoring history");
         System.out.println("6. Remove a target");
+        System.out.println("7. Edit a target");
         System.out.println("0. Exit application");
     }
     
@@ -165,27 +191,42 @@ public class ConsoleMenu {
             System.out.println("Invalid timeout value. Please try again.");
             return;
         }
-        System.out.print("Enter recovery action: ");
-        System.out.print("Paste command to execute on failure (or leave blank for none)");
+        System.out.print("Enter recovery action (or leave blank for none): ");
         String recoveryAction = scanner.nextLine().trim();
+
+        int consecutiveFailuresLimit = 1;
+        System.out.print("Enter consecutive failures before alerting (default 1): ");
+        String thresholdInput = scanner.nextLine().trim();
+        if (!thresholdInput.isEmpty()) {
+            try {
+                int threshold = Integer.parseInt(thresholdInput);
+                if (threshold > 0) {
+                    consecutiveFailuresLimit = threshold;
+                } else {
+                    System.out.println("Warning: threshold must be > 0. Using default 1.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Warning: Invalid number. Using default 1.");
+            }
+        }
+
         int nextId = 1;
         for (MonitoredTarget target : targets) {
             if (target.getId() == nextId) {
                 nextId++;
             }
         }
-        targets.add(new MonitoredTarget(nextId, name, targetType, hostOrUrl, timeout, recoveryAction, acceptableStatusCodes));
+        targets.add(new MonitoredTarget(nextId, name, targetType, hostOrUrl, timeout, recoveryAction, acceptableStatusCodes, consecutiveFailuresLimit));
         try {
             TargetRepository.saveTargets(targets, filePath);
+            SentryLogger.info("Target added: " + name + " (ID: " + nextId + ", Limit: " + consecutiveFailuresLimit + ")", true);
         } catch (Exception e) {
             System.out.println("Error saving target. Please try again.");
             return;
         }
         
-        System.out.println("Target added successfully. ID: " + nextId);
         System.out.println("Press Enter to continue...");
         scanner.nextLine();
-
     }
     
     //Handles listing all monitored targets in a formatted table.
@@ -225,8 +266,11 @@ public class ConsoleMenu {
         System.out.print("Choose an option: ");
         String sortChoice = scanner.nextLine().trim();
 
+        SentryLogger.info("Executing manual checks on " + targets.size() + " targets.");
+
         // Sorting happens in the Sort class, which returns a new sorted list based on the user's choice.
         java.util.List<MonitoredTarget> sorted = Sort.sort(targets, sortChoice);
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         for (MonitoredTarget target : sorted) {
             Monitorable monitor;
             if (target.getType().equalsIgnoreCase("HTTP")) {
@@ -245,6 +289,16 @@ public class ConsoleMenu {
                 isAvailable ? "ONLINE" : "OFFLINE",
                 responseTime);
             
+            // Record manual check to history
+            CheckResult result = new CheckResult(
+                target.getId(),
+                target.getName(),
+                timestamp,
+                isAvailable,
+                responseTime,
+                isAvailable ? "Manual check succeeded." : "Manual check failed."
+            );
+            HistoryRepository.addResult(result);
         }
         System.out.println("Press Enter to continue...");
         scanner.nextLine();
@@ -302,8 +356,39 @@ public class ConsoleMenu {
      * Need to save this to a file.
      */
     private void handleViewHistory() {
-        System.out.println("Coming soon: monitoring history feature is under development.");
+        System.out.println("\n--- Monitoring History ---");
+        List<CheckResult> history = HistoryRepository.loadHistory();
+        if (history.isEmpty()) {
+            System.out.println("No history recorded yet.");
+        } else {
+            System.out.printf("%-20s %-5s %-15s %-8s %-10s %-30s%n", "Timestamp", "ID", "Name", "Status", "Latency", "Message");
+            System.out.println("------------------------------------------------------------------------------------------------");
+            int count = 0;
+            for (CheckResult res : history) {
+                System.out.printf("%-20s %-5d %-15s %-8s %-10s %-30s%n",
+                    res.getTimestamp(),
+                    res.getTargetId(),
+                    res.getTargetName(),
+                    res.isSuccess() ? "ONLINE" : "OFFLINE",
+                    res.getDurationMillis() + " ms",
+                    res.getMessage());
+                count++;
+                if (count >= 20) {
+                    System.out.println("... (showing last 20 entries) ...");
+                    break;
+                }
+            }
+        }
+        System.out.println("\nOptions: (1) Clear History, (0) Back");
+        System.out.print("Choose option: ");
+        String choice = scanner.nextLine().trim();
+        if ("1".equals(choice)) {
+            HistoryRepository.clearHistory();
+            System.out.println("History cleared.");
+            SentryLogger.info("Monitoring history cleared.", true);
+        }
     }
+
     //Handles removing a target by ID, including input validation and saving changes to file.
     private void handleRemoveTarget() {
         System.out.println("Enter the ID of the target to remove: ");
@@ -314,19 +399,132 @@ public class ConsoleMenu {
             System.out.println("Invalid ID. Please enter a numeric value.");
             return;
         }
-        try {
-            targets.removeIf(target -> target.getId() == idToRemove); // Will throw if ID not found
-        } catch (Exception e) {
-            System.out.println("Error removing target, is the ID correct? Please try again.");
+        boolean removed = targets.removeIf(target -> target.getId() == idToRemove);
+        if (!removed) {
+            System.out.println("Target with ID " + idToRemove + " not found.");
             return;
         }
         try {
             TargetRepository.saveTargets(targets, filePath); // Save changes to file after removal
+            SentryLogger.info("Target removed: ID " + idToRemove, true);
         } catch (Exception e) {
             System.out.println("Error saving changes. Please try again.");
             return;
         }
-        System.out.println("Target removed successfully.");
+        System.out.println("Press Enter to continue...");
+        scanner.nextLine();
+    }
+
+    // Handles editing an existing monitored target.
+    private void handleEditTarget() {
+        System.out.println("Editing a target...");
+        System.out.print("Enter target ID to edit: ");
+        int idToEdit;
+        try {
+            idToEdit = Integer.parseInt(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid ID. Please enter a numeric value.");
+            return;
+        }
+
+        MonitoredTarget target = null;
+        for (MonitoredTarget t : targets) {
+            if (t.getId() == idToEdit) {
+                target = t;
+                break;
+            }
+        }
+
+        if (target == null) {
+            System.out.println("Target with ID " + idToEdit + " not found.");
+            return;
+        }
+
+        System.out.println("Editing target: " + target.getName() + " (" + target.getHost() + ")");
+        System.out.println("Press Enter to keep current values.");
+
+        System.out.print("Enter new name [" + target.getName() + "]: ");
+        String newNameInput = scanner.nextLine().trim();
+        if (!newNameInput.isEmpty()) {
+            try {
+                target.setName(validateName(newNameInput));
+            } catch (Exception e) {
+                System.out.println("Invalid target name. Keeping original.");
+            }
+        }
+
+        System.out.print("Enter new host/IP or URL [" + target.getHost() + "]: ");
+        String newHostInput = scanner.nextLine().trim();
+        if (!newHostInput.isEmpty()) {
+            try {
+                if (target.getType().equalsIgnoreCase("PING")) {
+                    target.setHost(validateHost(newHostInput));
+                } else {
+                    target.setHost(validateUrl(newHostInput));
+                }
+            } catch (Exception e) {
+                System.out.println("Invalid host/URL. Keeping original.");
+            }
+        }
+
+        System.out.print("Enter new timeout (seconds) [" + target.getTimeout() + "]: ");
+        String newTimeoutInput = scanner.nextLine().trim();
+        if (!newTimeoutInput.isEmpty()) {
+            try {
+                int timeoutValue = Integer.parseInt(newTimeoutInput);
+                target.setTimeout(validateTimeout(timeoutValue));
+            } catch (Exception e) {
+                System.out.println("Invalid timeout value. Keeping original.");
+            }
+        }
+
+        System.out.print("Enter new recovery action [" + (target.getRecoveryAction() == null || target.getRecoveryAction().isEmpty() ? "None" : target.getRecoveryAction()) + "]: ");
+        String newRecoveryInput = scanner.nextLine().trim();
+        if (!newRecoveryInput.isEmpty()) {
+            target.setRecoveryAction(newRecoveryInput);
+        }
+
+        if (target.getType().equalsIgnoreCase("HTTP")) {
+            System.out.print("Enter acceptable HTTP status codes [" + (target.getAcceptableStatusCodes() == null ? "200" : target.getAcceptableStatusCodes().toString()) + "]: ");
+            String codesInput = scanner.nextLine().trim();
+            if (!codesInput.isEmpty()) {
+                List<Integer> acceptableStatusCodes = new java.util.ArrayList<>();
+                String[] tokens = codesInput.split(",");
+                for (String token : tokens) {
+                    try {
+                        int code = Integer.parseInt(token.trim());
+                        acceptableStatusCodes.add(code);
+                    } catch (NumberFormatException e) {
+                        System.out.println("Warning: '" + token.trim() + "' is not a valid status code and was skipped.");
+                    }
+                }
+                if (!acceptableStatusCodes.isEmpty()) {
+                    target.setAcceptableStatusCodes(acceptableStatusCodes);
+                }
+            }
+        }
+
+        System.out.print("Enter consecutive failures before alerting [" + target.getConsecutiveFailuresLimit() + "]: ");
+        String thresholdInput = scanner.nextLine().trim();
+        if (!thresholdInput.isEmpty()) {
+            try {
+                int threshold = Integer.parseInt(thresholdInput);
+                if (threshold > 0) {
+                    target.setConsecutiveFailuresLimit(threshold);
+                } else {
+                    System.out.println("Threshold must be greater than zero. Keeping original.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid threshold. Keeping original.");
+            }
+        }
+
+        try {
+            TargetRepository.saveTargets(targets, filePath);
+            SentryLogger.info("Target edited: ID " + target.getId() + " - " + target.getName(), true);
+        } catch (Exception e) {
+            System.out.println("Error saving changes. Please try again.");
+        }
         System.out.println("Press Enter to continue...");
         scanner.nextLine();
     }
