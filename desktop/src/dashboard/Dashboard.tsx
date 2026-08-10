@@ -293,12 +293,12 @@ function FeedbackPlaceholder() {
   }, []);
 
   React.useEffect(() => {
-    fetchLogs();
+    void fetchLogs();
   }, [fetchLogs]);
 
   const handleCopy = () => {
     const text = logLines.join('\n');
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
   };
 
   return (
@@ -434,7 +434,7 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
     const storedTargets = localStorage.getItem('uptime_sentry_targets');
     const activeId = localStorage.getItem('uptime_sentry_active_id');
     if (storedProfiles && storedTargets && activeId) {
-      syncTargetsToBackend(JSON.parse(storedTargets), JSON.parse(storedProfiles), activeId);
+      void syncTargetsToBackend(JSON.parse(storedTargets), JSON.parse(storedProfiles), activeId);
     }
   }, [syncTargetsToBackend]);
 
@@ -506,7 +506,7 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
           </Stack>
         </Box>
       </Box>
-      <OnboardingModal open={showOnboarding} onClose={() => setShowOnboarding(false)} />
+      <OnboardingModal open={showOnboarding} onClose={() => { setShowOnboarding(false); }} />
     </>
   );
 }

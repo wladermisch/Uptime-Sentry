@@ -182,7 +182,7 @@ export default function Header() {
           </Box>
           <Divider />
           {notifications.map((item) => (
-            <MenuItem key={item.id} onClick={() => handleNotificationClick(item)} sx={{ py: 1.5, px: 2, whiteSpace: 'normal' }}>
+            <MenuItem key={item.id} onClick={() => { handleNotificationClick(item); }} sx={{ py: 1.5, px: 2, whiteSpace: 'normal' }}>
               <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start', width: '100%' }}>
                 {item.type === 'error' && <ErrorIcon color="error" sx={{ mt: 0.2 }} />}
                 {item.type === 'success' && <CheckCircleIcon color="success" sx={{ mt: 0.2 }} />}

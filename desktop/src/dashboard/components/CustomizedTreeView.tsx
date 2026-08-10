@@ -81,7 +81,7 @@ export default function CustomizedTreeView() {
             const isOpen = !!openGroups[group.id];
             return (
               <Box key={group.id} sx={{ mb: 1 }}>
-                <ListItemButton onClick={() => handleToggle(group.id)} sx={{ py: 0.5, px: 1, borderRadius: 1 }}>
+                <ListItemButton onClick={() => { handleToggle(group.id); }} sx={{ py: 0.5, px: 1, borderRadius: 1 }}>
                   <ListItemIcon sx={{ minWidth: 32, color: 'text.secondary' }}>
                     {group.icon}
                   </ListItemIcon>

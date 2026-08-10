@@ -55,9 +55,9 @@ export default function SelectContent() {
 
   React.useEffect(() => {
     loadFromStorage();
-    const handler = () => loadFromStorage();
+    const handler = () => { loadFromStorage(); };
     window.addEventListener('profiles-updated', handler);
-    return () => window.removeEventListener('profiles-updated', handler);
+    return () => { window.removeEventListener('profiles-updated', handler); };
   }, [loadFromStorage]);
 
   const handleChange = (event: SelectChangeEvent) => {

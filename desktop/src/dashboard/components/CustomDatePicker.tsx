@@ -11,7 +11,7 @@ export default function CustomDatePicker() {
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <DatePicker
         value={value}
-        onChange={(newValue) => setValue(newValue)}
+        onChange={(newValue) => { setValue(newValue); }}
         slotProps={{
           textField: {
             size: 'small',

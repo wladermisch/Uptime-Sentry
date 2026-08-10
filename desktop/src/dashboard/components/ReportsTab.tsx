@@ -161,9 +161,9 @@ export default function ReportsTab() {
     const mimeType = exportModal.format === 'md' ? 'text/markdown' : 'text/plain';
 
     // Native desktop Save As dialog if supported
-    if (typeof (window as any).showSaveFilePicker === 'function') {
+    if (typeof (window as unknown as { showSaveFilePicker?: unknown }).showSaveFilePicker === 'function') {
       try {
-        const handle = await (window as any).showSaveFilePicker({
+        const handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<{ createWritable(): Promise<{ write(c: string): Promise<void>; close(): Promise<void> }> }> }).showSaveFilePicker({
           suggestedName: exportModal.fileName,
           types: [{
             description: exportModal.format === 'md' ? 'Markdown Document' : 'Plain Text Document',
@@ -181,8 +181,8 @@ export default function ReportsTab() {
         }
         setExportModal(null);
         return;
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
+      } catch (err: unknown) {
+        if ((err as { name?: string }).name === 'AbortError') {
           return; // User cancelled file save dialog
         }
       }
@@ -200,7 +200,7 @@ export default function ReportsTab() {
       setTimeout(() => window.open(url, '_blank'), 100);
     }
 
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => { URL.revokeObjectURL(url); }, 1000);
     setExportModal(null);
   };
 
@@ -256,7 +256,7 @@ export default function ReportsTab() {
                 size="small"
                 fullWidth
                 value={reportTitle}
-                onChange={(e) => setReportTitle(e.target.value)}
+                onChange={(e) => { setReportTitle(e.target.value); }}
               />
 
               <TextField
@@ -265,7 +265,7 @@ export default function ReportsTab() {
                 size="small"
                 fullWidth
                 value={scope}
-                onChange={(e) => setScope(e.target.value as any)}
+                onChange={(e) => { setScope(e.target.value as 'profile' | 'target'); }}
               >
                 <MenuItem value="profile">Entire Profile</MenuItem>
                 <MenuItem value="target">Specific Target</MenuItem>
@@ -277,7 +277,7 @@ export default function ReportsTab() {
                 size="small"
                 fullWidth
                 value={selectedProfileId}
-                onChange={(e) => setSelectedProfileId(e.target.value)}
+                onChange={(e) => { setSelectedProfileId(e.target.value); }}
               >
                 {profiles.map((p) => (
                   <MenuItem key={p.id} value={p.id}>
@@ -293,7 +293,7 @@ export default function ReportsTab() {
                   size="small"
                   fullWidth
                   value={selectedTargetId}
-                  onChange={(e) => setSelectedTargetId(e.target.value)}
+                  onChange={(e) => { setSelectedTargetId(e.target.value); }}
                 >
                   <MenuItem value="all">All Profile Targets</MenuItem>
                   {activeTargetsList.map((t) => (
@@ -311,7 +311,7 @@ export default function ReportsTab() {
                   size="small"
                   fullWidth
                   value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
+                  onChange={(e) => { setFromDate(e.target.value); }}
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
                 <TextField
@@ -320,7 +320,7 @@ export default function ReportsTab() {
                   size="small"
                   fullWidth
                   value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
+                  onChange={(e) => { setToDate(e.target.value); }}
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Stack>
@@ -332,7 +332,7 @@ export default function ReportsTab() {
                 size="small"
                 fullWidth
                 value={authorNotes}
-                onChange={(e) => setAuthorNotes(e.target.value)}
+                onChange={(e) => { setAuthorNotes(e.target.value); }}
                 slotProps={{ inputLabel: { shrink: true } }}
                 sx={{
                   '& .MuiInputBase-root': { py: 1.5, px: 1.5, lineHeight: 1.5 },
@@ -345,19 +345,19 @@ export default function ReportsTab() {
               </Typography>
               <Stack spacing={0.5}>
                 <FormControlLabel
-                  control={<Checkbox checked={incTable} onChange={(e) => setIncTable(e.target.checked)} size="small" />}
+                  control={<Checkbox checked={incTable} onChange={(e) => { setIncTable(e.target.checked); }} size="small" />}
                   label="Include SLA Availability Summary Table"
                 />
                 <FormControlLabel
-                  control={<Checkbox checked={incCharts} onChange={(e) => setIncCharts(e.target.checked)} size="small" />}
+                  control={<Checkbox checked={incCharts} onChange={(e) => { setIncCharts(e.target.checked); }} size="small" />}
                   label="Include Latency Charts & Visuals"
                 />
                 <FormControlLabel
-                  control={<Checkbox checked={incAiPostMortem} onChange={(e) => setIncAiPostMortem(e.target.checked)} size="small" />}
+                  control={<Checkbox checked={incAiPostMortem} onChange={(e) => { setIncAiPostMortem(e.target.checked); }} size="small" />}
                   label="Include Post-Mortem Outage Summaries"
                 />
                 <FormControlLabel
-                  control={<Checkbox checked={incTimelines} onChange={(e) => setIncTimelines(e.target.checked)} size="small" />}
+                  control={<Checkbox checked={incTimelines} onChange={(e) => { setIncTimelines(e.target.checked); }} size="small" />}
                   label="Include Incident Audit Log Timelines"
                 />
               </Stack>
@@ -367,13 +367,13 @@ export default function ReportsTab() {
                 Export Options
               </Typography>
               <Stack spacing={1}>
-                <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => triggerOpenExportDialog('md')}>
+                <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => { triggerOpenExportDialog('md'); }}>
                   Export Markdown (.md)
                 </Button>
-                <Button variant="outlined" startIcon={<DescriptionIcon />} onClick={() => triggerOpenExportDialog('txt')}>
+                <Button variant="outlined" startIcon={<DescriptionIcon />} onClick={() => { triggerOpenExportDialog('txt'); }}>
                   Export Plain Text (.txt)
                 </Button>
-                <Button variant="outlined" color="secondary" startIcon={<PrintIcon />} onClick={() => triggerOpenExportDialog('pdf')}>
+                <Button variant="outlined" color="secondary" startIcon={<PrintIcon />} onClick={() => { triggerOpenExportDialog('pdf'); }}>
                   Export / Print PDF (.pdf)
                 </Button>
               </Stack>
@@ -519,7 +519,7 @@ export default function ReportsTab() {
       {exportModal && (
         <Dialog
           open={exportModal.open}
-          onClose={() => setExportModal(null)}
+          onClose={() => { setExportModal(null); }}
           maxWidth="xs"
           fullWidth
           slotProps={{
@@ -543,7 +543,7 @@ export default function ReportsTab() {
               size="small"
               fullWidth
               value={exportModal.fileName}
-              onChange={(e) => setExportModal({ ...exportModal, fileName: e.target.value })}
+              onChange={(e) => { setExportModal({ ...exportModal, fileName: e.target.value }); }}
               sx={{
                 mt: 1,
                 '& .MuiInputBase-root': { bgcolor: 'action.hover' }
@@ -553,7 +553,7 @@ export default function ReportsTab() {
               control={
                 <Checkbox
                   checked={openImmediately}
-                  onChange={(e) => setOpenImmediately(e.target.checked)}
+                  onChange={(e) => { setOpenImmediately(e.target.checked); }}
                   color="primary"
                 />
               }
@@ -561,7 +561,7 @@ export default function ReportsTab() {
             />
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
-            <Button variant="outlined" onClick={() => setExportModal(null)}>
+            <Button variant="outlined" onClick={() => { setExportModal(null); }}>
               Cancel
             </Button>
             <Button variant="contained" startIcon={<DownloadIcon />} onClick={handleConfirmSaveExport}>

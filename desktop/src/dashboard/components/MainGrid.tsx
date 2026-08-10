@@ -86,10 +86,12 @@ export default function MainGrid() {
   }, []);
 
   React.useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 5000);
+    void loadData();
+    const interval = setInterval(() => {
+      void loadData();
+    }, 5000);
     
-    const handleProfile = () => loadData();
+    const handleProfile = () => { void loadData(); };
     const handleSearch = (e: Event) => {
       setSearchQuery((e as CustomEvent).detail || '');
     };
@@ -232,7 +234,7 @@ export default function MainGrid() {
             select
             size="small"
             value={selectedTargetId}
-            onChange={(e) => setSelectedTargetId(e.target.value)}
+            onChange={(e) => { setSelectedTargetId(e.target.value); }}
             sx={{ minWidth: 200 }}
           >
             <MenuItem value="all">Average (All Targets)</MenuItem>

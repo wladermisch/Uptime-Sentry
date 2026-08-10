@@ -50,7 +50,7 @@ export default function ProfilesTab() {
   const [upSound, setUpSound] = React.useState('default-app');
   const [downSound, setDownSound] = React.useState('default-app');
 
-  const previewTimer = React.useRef<any>(null);
+  const previewTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadProfiles = React.useCallback(() => {
     const stored = localStorage.getItem('uptime_sentry_profiles');
@@ -80,7 +80,7 @@ export default function ProfilesTab() {
         if (data.up) setUpSoundsList(["default-app", ...data.up]);
         if (data.down) setDownSoundsList(["default-app", ...data.down]);
       })
-      .catch((e) => console.warn('Could not load sound files list from API:', e));
+      .catch((e) => { console.warn('Could not load sound files list from API:', e); });
 
     const handleSearch = (e: Event) => {
       setSearchQuery((e as CustomEvent).detail || '');
@@ -116,7 +116,7 @@ export default function ProfilesTab() {
       try {
         const audio = new Audio(`http://127.0.0.1:8765/api/audio/stream?type=${type}&file=${encodeURIComponent(soundName)}`);
         audio.volume = 0.8;
-        audio.play().catch((err) => console.error('Audio preview failed:', err));
+        audio.play().catch((err) => { console.error('Audio preview failed:', err); });
       } catch (e) {
         console.error('Audio play error:', e);
       }
@@ -253,7 +253,7 @@ export default function ProfilesTab() {
                   <ListItemButton
                     key={p.id}
                     selected={selectedId === p.id}
-                    onClick={() => handleSelectProfile(p)}
+                    onClick={() => { handleSelectProfile(p); }}
                     sx={{
                       width: '100%',
                       flexGrow: 0,
@@ -310,7 +310,7 @@ export default function ProfilesTab() {
                     color="error"
                     size="small"
                     startIcon={<DeleteIcon />}
-                    onClick={() => handleDelete(selectedId)}
+                    onClick={() => { handleDelete(selectedId); }}
                   >
                     Delete Profile
                   </Button>
@@ -324,7 +324,7 @@ export default function ProfilesTab() {
                   fullWidth
                   required
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => { setName(e.target.value); }}
                   slotProps={{
                     input: {
                       endAdornment: (
@@ -345,7 +345,7 @@ export default function ProfilesTab() {
                   fullWidth
                   required
                   value={interval}
-                  onChange={(e) => setIntervalVal(Number(e.target.value))}
+                  onChange={(e) => { setIntervalVal(Number(e.target.value)); }}
                   slotProps={{
                     input: {
                       endAdornment: (
@@ -366,7 +366,7 @@ export default function ProfilesTab() {
                   fullWidth
                   required
                   value={timeout}
-                  onChange={(e) => setTimeoutVal(Number(e.target.value))}
+                  onChange={(e) => { setTimeoutVal(Number(e.target.value)); }}
                   slotProps={{
                     input: {
                       endAdornment: (
@@ -387,7 +387,7 @@ export default function ProfilesTab() {
                   fullWidth
                   required
                   value={failuresLimit}
-                  onChange={(e) => setFailuresLimit(Number(e.target.value))}
+                  onChange={(e) => { setFailuresLimit(Number(e.target.value)); }}
                   slotProps={{
                     input: {
                       endAdornment: (
@@ -450,7 +450,7 @@ export default function ProfilesTab() {
                   control={
                     <Checkbox
                       checked={bgRunning}
-                      onChange={(e) => setBgRunning(e.target.checked)}
+                      onChange={(e) => { setBgRunning(e.target.checked); }}
                       color="primary"
                     />
                   }

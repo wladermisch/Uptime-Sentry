@@ -38,7 +38,7 @@ export default function MenuContent() {
       if (detail) setActive(detail);
     };
     window.addEventListener('nav-tab', handler);
-    return () => window.removeEventListener('nav-tab', handler);
+    return () => { window.removeEventListener('nav-tab', handler); };
   }, []);
 
   const handleNav = (tab: string) => {
@@ -52,7 +52,7 @@ export default function MenuContent() {
           <ListItem key={item.value} disablePadding sx={{ display: 'block' }}>
             <ListItemButton 
               selected={active === item.value}
-              onClick={() => handleNav(item.value)}
+              onClick={() => { handleNav(item.value); }}
             >
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.text} />

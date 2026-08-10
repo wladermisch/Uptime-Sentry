@@ -48,7 +48,7 @@ export default function PageViewsBarChart() {
                 categoryGapRatio: 0.5,
                 data: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
               },
-            ] as any
+            ] as unknown as import('@mui/x-charts').BarChartProps['xAxis']
           }
           series={[
             {

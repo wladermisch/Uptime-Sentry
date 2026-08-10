@@ -119,7 +119,7 @@ export default function SettingsTab() {
     }
 
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => { setSaved(false); }, 2000);
   };
 
   return (
@@ -140,7 +140,7 @@ export default function SettingsTab() {
                 control={
                   <Checkbox
                     checked={settings.startWithWindows}
-                    onChange={(e) => setSettings({ ...settings, startWithWindows: e.target.checked })}
+                    onChange={(e) => { setSettings({ ...settings, startWithWindows: e.target.checked }); }}
                     color="primary"
                   />
                 }
@@ -157,7 +157,7 @@ export default function SettingsTab() {
                 control={
                   <Checkbox
                     checked={settings.autoCheckUpdates}
-                    onChange={(e) => setSettings({ ...settings, autoCheckUpdates: e.target.checked })}
+                    onChange={(e) => { setSettings({ ...settings, autoCheckUpdates: e.target.checked }); }}
                     color="primary"
                   />
                 }
@@ -184,7 +184,7 @@ export default function SettingsTab() {
                 control={
                   <Checkbox
                     checked={settings.enableNotifications}
-                    onChange={(e) => setSettings({ ...settings, enableNotifications: e.target.checked })}
+                    onChange={(e) => { setSettings({ ...settings, enableNotifications: e.target.checked }); }}
                     color="primary"
                   />
                 }
@@ -194,7 +194,7 @@ export default function SettingsTab() {
                 control={
                   <Checkbox
                     checked={settings.playSoundAlert}
-                    onChange={(e) => setSettings({ ...settings, playSoundAlert: e.target.checked })}
+                    onChange={(e) => { setSettings({ ...settings, playSoundAlert: e.target.checked }); }}
                     color="primary"
                   />
                 }
@@ -204,7 +204,7 @@ export default function SettingsTab() {
                 control={
                   <Checkbox
                     checked={settings.emailAlertsEnabled}
-                    onChange={(e) => setSettings({ ...settings, emailAlertsEnabled: e.target.checked })}
+                    onChange={(e) => { setSettings({ ...settings, emailAlertsEnabled: e.target.checked }); }}
                     color="primary"
                   />
                 }
@@ -218,7 +218,7 @@ export default function SettingsTab() {
                   fullWidth
                   required
                   value={settings.emailRecipient}
-                  onChange={(e) => setSettings({ ...settings, emailRecipient: e.target.value })}
+                  onChange={(e) => { setSettings({ ...settings, emailRecipient: e.target.value }); }}
                   sx={{ maxWidth: '400px', mt: 1 }}
                 />
               )}
@@ -309,7 +309,7 @@ export default function SettingsTab() {
                 fullWidth
                 required
                 value={settings.logRetentionDays}
-                onChange={(e) => setSettings({ ...settings, logRetentionDays: Number(e.target.value) })}
+                onChange={(e) => { setSettings({ ...settings, logRetentionDays: Number(e.target.value) }); }}
                 sx={{ maxWidth: '280px' }}
                 slotProps={{
                   input: {

@@ -229,7 +229,7 @@ export default function TargetsTab() {
     setTimeoutVal(t.timeout);
     setFailuresLimit(t.consecutiveFailuresLimit);
     setRecoveryAction(t.recoveryAction || '');
-    setStatusCodesStr(t.acceptableStatusCodes?.join(', ') || '200');
+    setStatusCodesStr(t.acceptableStatusCodes.join(', ') || '200');
     setDegradedCodesStr(t.degradedStatusCodes?.join(', ') || '404, 503');
     setDegradedLatency(t.degradedLatencyThreshold || 1500);
     setUpSound(t.upSound || 'default-profile');
@@ -238,7 +238,7 @@ export default function TargetsTab() {
     setKeywordRule(t.keywordRule || 'DISABLED');
     setPaused(!!t.paused);
 
-    runLiveTest(t.host, t.type, t.timeout, t.acceptableStatusCodes?.join(', ') || '200');
+    void runLiveTest(t.host, t.type, t.timeout, t.acceptableStatusCodes?.join(', ') || '200');
   };
 
   const loadActiveProfileAndTargets = React.useCallback(() => {
@@ -282,9 +282,9 @@ export default function TargetsTab() {
         if (data.up) setUpSoundsList(["default-profile", "no-sound", ...data.up]);
         if (data.down) setDownSoundsList(["default-profile", "no-sound", ...data.down]);
       })
-      .catch((e) => console.warn('Could not load sound files list from API:', e));
+      .catch((e) => { console.warn('Could not load sound files list from API:', e); });
 
-    const handleProfile = () => loadActiveProfileAndTargets();
+    const handleProfile = () => { loadActiveProfileAndTargets(); };
     const handleSearch = (e: Event) => {
       setSearchQuery((e as CustomEvent).detail || '');
     };
@@ -304,9 +304,9 @@ export default function TargetsTab() {
   React.useEffect(() => {
     if (!host.trim()) return;
     const timer = setTimeout(() => {
-      runLiveTest(host, type, timeout, statusCodesStr);
+      void runLiveTest(host, type, timeout, statusCodesStr);
     }, 500);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); };
   }, [host, type, timeout, statusCodesStr, runLiveTest]);
 
   const handleSelectTarget = (t: Target) => {
@@ -406,7 +406,7 @@ export default function TargetsTab() {
     setTargets(updatedTargets);
 
     // Sync to backend
-    syncTargetsToBackend(updatedTargets, activeProfile.id);
+    void syncTargetsToBackend(updatedTargets, activeProfile.id);
   };
 
   const handleDelete = (id: number) => {
@@ -427,7 +427,7 @@ export default function TargetsTab() {
     setTargets(updated);
 
     // Sync to backend
-    syncTargetsToBackend(updated, activeProfile.id);
+    void syncTargetsToBackend(updated, activeProfile.id);
 
     const currentProfileTargets = updated.filter((t) => t.profileId === activeProfile.id);
     if (currentProfileTargets.length > 0) {
@@ -501,7 +501,7 @@ export default function TargetsTab() {
                   <ListItemButton
                     key={t.id}
                     selected={selectedId === t.id}
-                    onClick={() => handleSelectTarget(t)}
+                    onClick={() => { handleSelectTarget(t); }}
                     sx={{
                       width: '100%',
                       flexGrow: 0,
@@ -560,7 +560,7 @@ export default function TargetsTab() {
                     control={
                       <Switch
                         checked={paused}
-                        onChange={(e) => setPaused(e.target.checked)}
+                        onChange={(e) => { setPaused(e.target.checked); }}
                         color="warning"
                         size="small"
                       />
@@ -573,7 +573,7 @@ export default function TargetsTab() {
                       color="error"
                       size="small"
                       startIcon={<DeleteIcon />}
-                      onClick={() => handleDelete(selectedId)}
+                      onClick={() => { handleDelete(selectedId); }}
                     >
                       Remove Target
                     </Button>
@@ -588,7 +588,7 @@ export default function TargetsTab() {
                   fullWidth
                   required
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => { setName(e.target.value); }}
                 />
 
                 <TextField
@@ -598,7 +598,7 @@ export default function TargetsTab() {
                   fullWidth
                   required
                   value={type}
-                  onChange={(e) => setType(e.target.value)}
+                  onChange={(e) => { setType(e.target.value); }}
                 >
                   <MenuItem value="HTTP">HTTP(S) Web Service</MenuItem>
                   <MenuItem value="PING">PING (ICMP Protocol)</MenuItem>
@@ -610,7 +610,7 @@ export default function TargetsTab() {
                   fullWidth
                   required
                   value={host}
-                  onChange={(e) => setHost(e.target.value)}
+                  onChange={(e) => { setHost(e.target.value); }}
                 />
 
                 <Grid container spacing={2}>
@@ -622,7 +622,7 @@ export default function TargetsTab() {
                       fullWidth
                       required
                       value={timeout}
-                      onChange={(e) => setTimeoutVal(Number(e.target.value))}
+                      onChange={(e) => { setTimeoutVal(Number(e.target.value)); }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
@@ -633,7 +633,7 @@ export default function TargetsTab() {
                       fullWidth
                       required
                       value={failuresLimit}
-                      onChange={(e) => setFailuresLimit(Number(e.target.value))}
+                      onChange={(e) => { setFailuresLimit(Number(e.target.value)); }}
                     />
                   </Grid>
                 </Grid>
@@ -648,7 +648,7 @@ export default function TargetsTab() {
                           fullWidth
                           required
                           value={statusCodesStr}
-                          onChange={(e) => setStatusCodesStr(e.target.value)}
+                          onChange={(e) => { setStatusCodesStr(e.target.value); }}
                           helperText="Comma separated values (e.g. 200, 201, 204)"
                         />
                       </Grid>
@@ -658,7 +658,7 @@ export default function TargetsTab() {
                           size="small"
                           fullWidth
                           value={degradedCodesStr}
-                          onChange={(e) => setDegradedCodesStr(e.target.value)}
+                          onChange={(e) => { setDegradedCodesStr(e.target.value); }}
                           helperText="StatusCodes marked DEGRADED instead of DOWN (e.g. 404, 503)"
                         />
                       </Grid>
@@ -672,7 +672,7 @@ export default function TargetsTab() {
                           size="small"
                           fullWidth
                           value={keywordRule}
-                          onChange={(e) => setKeywordRule(e.target.value)}
+                          onChange={(e) => { setKeywordRule(e.target.value); }}
                         >
                           <MenuItem value="DISABLED">Disabled (Status Code Only)</MenuItem>
                           <MenuItem value="MUST_CONTAIN">Must Contain Keyword (Online if present)</MenuItem>
@@ -686,7 +686,7 @@ export default function TargetsTab() {
                           fullWidth
                           disabled={keywordRule === 'DISABLED'}
                           value={keyword}
-                          onChange={(e) => setKeyword(e.target.value)}
+                          onChange={(e) => { setKeyword(e.target.value); }}
                           placeholder='e.g. "status":"operational"'
                         />
                       </Grid>
@@ -700,7 +700,7 @@ export default function TargetsTab() {
                   size="small"
                   fullWidth
                   value={degradedLatency}
-                  onChange={(e) => setDegradedLatency(Number(e.target.value))}
+                  onChange={(e) => { setDegradedLatency(Number(e.target.value)); }}
                   helperText="Response times higher than this threshold mark target status as DEGRADED"
                 />
 
@@ -746,7 +746,7 @@ export default function TargetsTab() {
                   size="small"
                   fullWidth
                   value={recoveryAction}
-                  onChange={(e) => setRecoveryAction(e.target.value)}
+                  onChange={(e) => { setRecoveryAction(e.target.value); }}
                   placeholder="e.g. C:\scripts\restart_apache.bat"
                 />
 

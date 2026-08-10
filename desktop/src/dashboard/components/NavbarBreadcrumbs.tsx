@@ -24,7 +24,7 @@ export default function NavbarBreadcrumbs() {
       if (detail) setActiveTab(detail);
     };
     window.addEventListener('nav-tab', handler);
-    return () => window.removeEventListener('nav-tab', handler);
+    return () => { window.removeEventListener('nav-tab', handler); };
   }, []);
 
   const formatTabName = (tab: string) => {

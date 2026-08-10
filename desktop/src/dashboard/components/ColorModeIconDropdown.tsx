@@ -10,8 +10,8 @@ export default function ColorModeIconDropdown(props: { sx?: object; size?: "smal
   const { mode, setMode } = useColorScheme();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
-  const handleClose = () => setAnchorEl(null);
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => { setAnchorEl(event.currentTarget); };
+  const handleClose = () => { setAnchorEl(null); };
   const handleMode = (targetMode: "light" | "dark" | "system") => () => {
     setMode(targetMode);
     handleClose();

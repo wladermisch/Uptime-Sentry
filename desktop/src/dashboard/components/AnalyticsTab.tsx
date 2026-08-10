@@ -120,7 +120,7 @@ export default function AnalyticsTab() {
     };
 
     window.addEventListener('select-analytics-incident', handleSelectIncident);
-    return () => window.removeEventListener('select-analytics-incident', handleSelectIncident);
+    return () => { window.removeEventListener('select-analytics-incident', handleSelectIncident); };
   }, [loadData, targets]);
 
   // Generate Incidents for selected target
@@ -192,7 +192,7 @@ export default function AnalyticsTab() {
       audio.volume = 0.8;
       audio.play().catch(() => {});
     } catch {}
-    setTimeout(() => setTestAlertSent(false), 3000);
+    setTimeout(() => { setTestAlertSent(false); }, 3000);
   };
 
   const handleNavigateToConfigure = () => {
@@ -234,7 +234,7 @@ export default function AnalyticsTab() {
                 size="small"
                 fullWidth
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); }}
               />
             </Box>
             {/* List Wrapper to prevent item expansion */}
@@ -244,7 +244,7 @@ export default function AnalyticsTab() {
                   <ListItemButton
                     key={t.id}
                     selected={selectedTarget?.id === t.id}
-                    onClick={() => setSelectedTarget(t)}
+                    onClick={() => { setSelectedTarget(t); }}
                     sx={{
                       width: '100%',
                       flexGrow: 0,
@@ -323,7 +323,7 @@ export default function AnalyticsTab() {
                         variant={isPaused ? 'contained' : 'outlined'}
                         color={isPaused ? 'success' : 'warning'}
                         startIcon={isPaused ? <PlayArrowIcon /> : <PauseIcon />}
-                        onClick={() => setIsPaused(!isPaused)}
+                        onClick={() => { setIsPaused(!isPaused); }}
                       >
                         {isPaused ? 'Resume' : 'Pause'}
                       </Button>
@@ -389,7 +389,7 @@ export default function AnalyticsTab() {
                         label="From"
                         size="small"
                         value={fromDate}
-                        onChange={(e) => setFromDate(e.target.value)}
+                        onChange={(e) => { setFromDate(e.target.value); }}
                         slotProps={{ inputLabel: { shrink: true } }}
                       />
                       <TextField
@@ -397,7 +397,7 @@ export default function AnalyticsTab() {
                         label="To"
                         size="small"
                         value={toDate}
-                        onChange={(e) => setToDate(e.target.value)}
+                        onChange={(e) => { setToDate(e.target.value); }}
                         slotProps={{ inputLabel: { shrink: true } }}
                       />
                       <Button variant="contained" size="small">
@@ -475,7 +475,7 @@ export default function AnalyticsTab() {
                     {incidentsList.map((inc) => (
                       <ListItemButton
                         key={inc.id}
-                        onClick={() => setSelectedIncident(inc)}
+                        onClick={() => { setSelectedIncident(inc); }}
                         sx={{
                           border: '1px solid',
                           borderColor: 'divider',
@@ -523,7 +523,7 @@ export default function AnalyticsTab() {
       {selectedIncident && (
         <Dialog
           open={Boolean(selectedIncident)}
-          onClose={() => setSelectedIncident(null)}
+          onClose={() => { setSelectedIncident(null); }}
           maxWidth="md"
           fullWidth
           slotProps={{ paper: { sx: { borderRadius: 2 } } }}
@@ -653,7 +653,7 @@ export default function AnalyticsTab() {
                   size="small"
                   fullWidth
                   value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value)}
+                  onChange={(e) => { setCommentInput(e.target.value); }}
                 />
                 <Button variant="contained" size="small" onClick={handleAddComment}>
                   Post
@@ -662,7 +662,7 @@ export default function AnalyticsTab() {
             </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
-            <Button variant="outlined" onClick={() => setSelectedIncident(null)}>
+            <Button variant="outlined" onClick={() => { setSelectedIncident(null); }}>
               Close
             </Button>
           </DialogActions>
