@@ -59,58 +59,6 @@ interface Target {
   profileName: string;
 }
 
-// ── Tab Content Placeholders ──────────────────────────────────────────────────
-
-function AnalyticsPlaceholder() {
-  return (
-    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-      <Typography component="h2" variant="h6" sx={{ mb: 2 }}>Analytics</Typography>
-      <Card variant="outlined">
-        <CardContent>
-          <Typography variant="body1" sx={{ color: 'text.secondary', mb: 2 }}>
-            Monitoring uptime performance and response time history.
-          </Typography>
-          <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover', borderRadius: 1 }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Uptime graph visualization placeholder</Typography>
-          </Box>
-        </CardContent>
-      </Card>
-    </Box>
-  );
-}
-
-function ClientsPlaceholder() {
-  return (
-    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-      <Typography component="h2" variant="h6" sx={{ mb: 2 }}>Clients</Typography>
-      <Card variant="outlined">
-        <CardContent>
-          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-            List of connected devices and agents.
-          </Typography>
-        </CardContent>
-      </Card>
-    </Box>
-  );
-}
-
-function TasksPlaceholder() {
-  return (
-    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-      <Typography component="h2" variant="h6" sx={{ mb: 2 }}>Tasks</Typography>
-      <Card variant="outlined">
-        <CardContent>
-          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-            Scheduled check intervals and system maintenance tasks.
-          </Typography>
-        </CardContent>
-      </Card>
-    </Box>
-  );
-}
-
-
-
 // ── NotionGate-Style About Page ──────────────────────────────────────────────
 
 function AboutPlaceholder() {
@@ -128,7 +76,7 @@ function AboutPlaceholder() {
         setSchedulerRunning(data.running);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setLoading(false); });
   }, []);
 
   const parseVersion = (v: string): number[] => {
@@ -139,8 +87,8 @@ function AboutPlaceholder() {
     const l = parseVersion(latest);
     const c = parseVersion(current);
     for (let i = 0; i < Math.max(l.length, c.length); i++) {
-      const lNum = l[i] || 0;
-      const cNum = c[i] || 0;
+      const lNum = l[i] ?? 0;
+      const cNum = c[i] ?? 0;
       if (lNum > cNum) return true;
       if (lNum < cNum) return false;
     }
@@ -161,7 +109,7 @@ function AboutPlaceholder() {
         if (isNewerVersion(latestTag, 'v1.0.0')) {
           setUpdateStatus(`A new version (${latestTag}) is available!`);
           setShowUpdateButton(true);
-          const exeAsset = data.assets?.find((asset: any) => asset.name.endsWith('.exe'));
+          const exeAsset = data.assets?.find((asset: { name: string; browser_download_url: string }) => asset.name.endsWith('.exe'));
           if (exeAsset) {
             setLatestReleaseUrl(exeAsset.browser_download_url);
           } else {

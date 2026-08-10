@@ -16,12 +16,9 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import Divider from '@mui/material/Divider';
 import MenuItem from '@mui/material/MenuItem';
-import Autocomplete from '@mui/material/Autocomplete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SpeedIcon from '@mui/icons-material/Speed';
-import SecurityIcon from '@mui/icons-material/Security';
-import AssessmentIcon from '@mui/icons-material/Assessment';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
@@ -46,21 +43,9 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
   const [targetName, setTargetName] = React.useState('Google DNS');
   const [targetType, setTargetType] = React.useState('PING');
   const [targetHost, setTargetHost] = React.useState('8.8.8.8');
-  const [targetTimeout, setTargetTimeout] = React.useState(5);
+  const [targetTimeout] = React.useState(5);
 
-  const handleNext = () => {
-    if (activeStep === STEPS.length - 1) {
-      handleFinish();
-    } else {
-      setActiveStep((prev) => prev + 1);
-    }
-  };
-
-  const handleBack = () => {
-    setActiveStep((prev) => Math.max(0, prev - 1));
-  };
-
-  const handleFinish = () => {
+  const handleFinish = React.useCallback(() => {
     // Save settings
     const settings = {
       startWithWindows,
@@ -98,6 +83,18 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
 
     localStorage.setItem('uptime_sentry_onboarded', 'true');
     onClose();
+  }, [startWithWindows, defaultUpSound, defaultDownSound, logRetentionDays, checkInterval, targetHost, targetName, targetType, targetTimeout, onClose]);
+
+  const handleNext = () => {
+    if (activeStep === STEPS.length - 1) {
+      handleFinish();
+    } else {
+      setActiveStep((prev) => prev + 1);
+    }
+  };
+
+  const handleBack = () => {
+    setActiveStep((prev) => Math.max(0, prev - 1));
   };
 
   return (
@@ -163,7 +160,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                       variant="outlined"
                       size="small"
                       startIcon={<OpenInNewIcon />}
-                      onClick={() => window.open('https://github.com/wladermisch', '_blank')}
+                      onClick={() => { window.open('https://github.com/wladermisch', '_blank'); }}
                     >
                       GitHub (@wladermisch)
                     </Button>
@@ -172,7 +169,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                       color="secondary"
                       size="small"
                       startIcon={<OpenInNewIcon />}
-                      onClick={() => window.open('https://ko-fi.com/wladermisch', '_blank')}
+                      onClick={() => { window.open('https://ko-fi.com/wladermisch', '_blank'); }}
                     >
                       Support on Ko-fi
                     </Button>
@@ -249,7 +246,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                   control={
                     <Checkbox
                       checked={startWithWindows}
-                      onChange={(e) => setStartWithWindows(e.target.checked)}
+                      onChange={(e) => { setStartWithWindows(e.target.checked); }}
                       color="primary"
                     />
                   }
@@ -264,7 +261,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                       size="small"
                       fullWidth
                       value={checkInterval}
-                      onChange={(e) => setCheckInterval(Number(e.target.value))}
+                      onChange={(e) => { setCheckInterval(Number(e.target.value)); }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
@@ -274,7 +271,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                       size="small"
                       fullWidth
                       value={logRetentionDays}
-                      onChange={(e) => setLogRetentionDays(Number(e.target.value))}
+                      onChange={(e) => { setLogRetentionDays(Number(e.target.value)); }}
                     />
                   </Grid>
                 </Grid>
@@ -287,7 +284,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                       size="small"
                       fullWidth
                       value={defaultUpSound}
-                      onChange={(e) => setDefaultUpSound(e.target.value)}
+                      onChange={(e) => { setDefaultUpSound(e.target.value); }}
                     >
                       <MenuItem value="Up-Default.wav">Up-Default.wav</MenuItem>
                       <MenuItem value="Up2.wav">Up2.wav</MenuItem>
@@ -301,7 +298,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                       size="small"
                       fullWidth
                       value={defaultDownSound}
-                      onChange={(e) => setDefaultDownSound(e.target.value)}
+                      onChange={(e) => { setDefaultDownSound(e.target.value); }}
                     >
                       <MenuItem value="Down-Default.wav">Down-Default.wav</MenuItem>
                       <MenuItem value="Critical-Alert.wav">Critical-Alert.wav</MenuItem>
@@ -328,7 +325,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                   size="small"
                   fullWidth
                   value={targetName}
-                  onChange={(e) => setTargetName(e.target.value)}
+                  onChange={(e) => { setTargetName(e.target.value); }}
                 />
 
                 <TextField
@@ -337,7 +334,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                   size="small"
                   fullWidth
                   value={targetType}
-                  onChange={(e) => setTargetType(e.target.value)}
+                  onChange={(e) => { setTargetType(e.target.value); }}
                 >
                   <MenuItem value="PING">PING (ICMP Protocol)</MenuItem>
                   <MenuItem value="HTTP">HTTP(S) Web Service</MenuItem>
@@ -348,7 +345,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                   size="small"
                   fullWidth
                   value={targetHost}
-                  onChange={(e) => setTargetHost(e.target.value)}
+                  onChange={(e) => { setTargetHost(e.target.value); }}
                 />
               </CardContent>
             </Card>

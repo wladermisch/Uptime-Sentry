@@ -53,7 +53,7 @@ export default function StatCard({
   const theme = useTheme();
   const daysInWeek = getDaysInMonth(4, 2024);
 
-  const trendColors = {
+  const trendColors: Record<'up' | 'down' | 'neutral', string> = {
     up:
       theme.palette.mode === 'light'
         ? theme.palette.success.main
@@ -68,15 +68,16 @@ export default function StatCard({
         : theme.palette.grey[700],
   };
 
-  const labelColors = {
-    up: 'success' as const,
-    down: 'error' as const,
-    neutral: 'default' as const,
+  const labelColors: Record<'up' | 'down' | 'neutral', 'success' | 'error' | 'default'> = {
+    up: 'success',
+    down: 'error',
+    neutral: 'default',
   };
 
-  const color = labelColors[trend];
-  const chartColor = trendColors[trend];
-  const trendValues = { up: '+25%', down: '-25%', neutral: '+5%' };
+  const trendValues: Record<'up' | 'down' | 'neutral', string> = { up: '+25%', down: '-25%', neutral: '+5%' };
+
+  const color = labelColors[trend] ?? 'default';
+  const chartColor = trendColors[trend] ?? theme.palette.grey[500];
 
   return (
     <Card variant="outlined" sx={{ height: '100%', flexGrow: 1 }}>

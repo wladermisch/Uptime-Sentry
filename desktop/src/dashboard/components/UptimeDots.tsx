@@ -53,7 +53,7 @@ export default function UptimeDots({ history, limit = 80 }: UptimeDotsProps) {
         {paddedList.map((item, index) => {
           if (item === null) {
             return (
-              <Tooltip key={`missing-${index}`} title="No data recorded for this interval">
+              <Tooltip key={`missing-${80 - index}`} title="No data recorded for this interval">
                 <Box
                   sx={{
                     flexGrow: 1,
@@ -72,7 +72,7 @@ export default function UptimeDots({ history, limit = 80 }: UptimeDotsProps) {
 
           const tooltipText = `${item.timestamp} - ${item.success ? 'Online' : 'Offline'} (${item.durationMillis}ms) - ${item.message}`;
           return (
-            <Tooltip key={`check-${index}`} title={tooltipText}>
+            <Tooltip key={`check-${item.timestamp}-${item.targetName}-${index}`} title={tooltipText}>
               <Box
                 sx={{
                   flexGrow: 1,

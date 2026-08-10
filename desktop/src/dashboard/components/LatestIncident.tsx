@@ -58,9 +58,13 @@ export default function LatestIncident() {
   }, []);
 
   React.useEffect(() => {
-    fetchLatestIncident();
-    const interval = setInterval(fetchLatestIncident, 5000);
-    return () => clearInterval(interval);
+    void fetchLatestIncident();
+    const interval = setInterval(() => {
+      void fetchLatestIncident();
+    }, 5000);
+    return () => {
+      clearInterval(interval);
+    };
   }, [fetchLatestIncident]);
 
   if (loading) {
@@ -70,6 +74,10 @@ export default function LatestIncident() {
       </Box>
     );
   }
+
+  const expectedResponse = targetInfo
+    ? (targetInfo.acceptableStatusCodes && targetInfo.acceptableStatusCodes.length > 0 ? targetInfo.acceptableStatusCodes.join(', ') : '200')
+    : '200 OK';
 
   if (!latestIncident) {
     return (
@@ -88,7 +96,7 @@ export default function LatestIncident() {
   }
 
   const expectedCodes = targetInfo && targetInfo.type === 'HTTP'
-    ? (targetInfo.acceptableStatusCodes?.length > 0 ? targetInfo.acceptableStatusCodes.join(', ') : '200')
+    ? (targetInfo.acceptableStatusCodes && targetInfo.acceptableStatusCodes.length > 0 ? targetInfo.acceptableStatusCodes.join(', ') : '200')
     : 'Reachable';
 
   const recoveryText = targetInfo && targetInfo.recoveryAction

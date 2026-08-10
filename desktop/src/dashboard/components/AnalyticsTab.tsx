@@ -613,7 +613,7 @@ export default function AnalyticsTab() {
               </Stack>
               <Stack spacing={1} sx={{ pl: 1, borderLeft: '2px solid', borderColor: 'primary.main' }}>
                 {selectedIncident.timeline.map((item, idx) => (
-                  <Box key={idx} sx={{ pl: 1.5, py: 0.5, userSelect: 'text' }}>
+                  <Box key={`timeline-${item.time}-${idx}`} sx={{ pl: 1.5, py: 0.5, userSelect: 'text' }}>
                     <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                       <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
                         {item.time}

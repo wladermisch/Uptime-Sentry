@@ -52,7 +52,7 @@ export default function SettingsTab() {
   const [upSoundsList, setUpSoundsList] = React.useState<string[]>(FALLBACK_UP);
   const [downSoundsList, setDownSoundsList] = React.useState<string[]>(FALLBACK_DOWN);
 
-  const previewTimer = React.useRef<any>(null);
+  const previewTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch sounds list from Javalin API
   React.useEffect(() => {
@@ -62,7 +62,7 @@ export default function SettingsTab() {
         if (data.up) setUpSoundsList(data.up);
         if (data.down) setDownSoundsList(data.down);
       })
-      .catch((e) => console.warn('Could not load sound files list from API, using fallback:', e));
+      .catch((e) => { console.warn('Could not load sound files list from API, using fallback:', e); });
 
     try {
       const stored = localStorage.getItem('uptime_sentry_settings');
@@ -83,7 +83,7 @@ export default function SettingsTab() {
       try {
         const audio = new Audio(`http://127.0.0.1:8765/api/audio/stream?type=${type}&file=${encodeURIComponent(soundName)}`);
         audio.volume = vol / 100;
-        audio.play().catch((err) => console.error('Audio playback blocked or failed:', err));
+        audio.play().catch((err) => { console.error('Audio playback blocked or failed:', err); });
       } catch (e) {
         console.error('Audio play error:', e);
       }

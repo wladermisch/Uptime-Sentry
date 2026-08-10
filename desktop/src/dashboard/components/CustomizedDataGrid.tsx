@@ -33,7 +33,7 @@ const columns: GridColDef[] = [
 ];
 
 export default function CustomizedDataGrid() {
-  const [rows, setRows] = React.useState<any[]>([]);
+  const [rows, setRows] = React.useState<Record<string, unknown>[]>([]);
 
   const fetchHistory = React.useCallback(async () => {
     try {
@@ -41,7 +41,7 @@ export default function CustomizedDataGrid() {
       if (r.ok) {
         const data = await r.json();
         // Add a unique key (id) for each row if not present
-        const mapped = data.map((item: any, index: number) => ({
+        const mapped = data.map((item: Record<string, unknown>, index: number) => ({
           id: item.id || index + 1,
           ...item
         }));
@@ -53,9 +53,13 @@ export default function CustomizedDataGrid() {
   }, []);
 
   React.useEffect(() => {
-    fetchHistory();
-    const timer = setInterval(fetchHistory, 5000);
-    return () => clearInterval(timer);
+    void fetchHistory();
+    const timer = setInterval(() => {
+      void fetchHistory();
+    }, 5000);
+    return () => {
+      clearInterval(timer);
+    };
   }, [fetchHistory]);
 
   return (

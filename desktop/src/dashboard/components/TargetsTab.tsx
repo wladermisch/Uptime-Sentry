@@ -91,7 +91,7 @@ export default function TargetsTab() {
     message: string;
   } | null>(null);
 
-  const previewTimer = React.useRef<any>(null);
+  const previewTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const syncTargetsToBackend = async (allTargets: Target[], activeId: string) => {
     let profilesList: Profile[] = [];
@@ -166,7 +166,7 @@ export default function TargetsTab() {
       try {
         const audio = new Audio(`http://127.0.0.1:8765/api/audio/stream?type=${soundType}&file=${encodeURIComponent(soundName)}`);
         audio.volume = 0.8;
-        audio.play().catch((err) => console.error('Audio preview failed:', err));
+        audio.play().catch((err) => { console.error('Audio preview failed:', err); });
       } catch (e) {
         console.error('Audio play error:', e);
       }

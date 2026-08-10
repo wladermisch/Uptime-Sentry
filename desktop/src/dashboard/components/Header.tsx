@@ -109,9 +109,13 @@ export default function Header() {
   }, []);
 
   React.useEffect(() => {
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 5000);
-    return () => clearInterval(interval);
+    void loadNotifications();
+    const interval = setInterval(() => {
+      void loadNotifications();
+    }, 5000);
+    return () => {
+      clearInterval(interval);
+    };
   }, [loadNotifications]);
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
