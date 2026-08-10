@@ -47,13 +47,42 @@ public class HttpMonitor implements Monitorable {
             long endTime = System.currentTimeMillis();
             this.lastResponseTime = endTime - startTime;
 
-            // If no custom list is configured, default to HTTP 200 as online.
+            boolean codeAcceptable;
             if (target.getAcceptableStatusCodes() == null || target.getAcceptableStatusCodes().isEmpty()) {
-                return responseCode == 200;
+                codeAcceptable = (responseCode >= 200 && responseCode < 300);
+            } else {
+                codeAcceptable = target.getAcceptableStatusCodes().contains(responseCode);
             }
 
-            // Check if returned code is in the list of acceptable ones.
-            return target.getAcceptableStatusCodes().contains(responseCode);
+            if (!codeAcceptable) {
+                return false;
+            }
+
+            // Keyword content matching check
+            String rule = target.getKeywordRule();
+            String kw = target.getKeyword();
+
+            if (kw != null && !kw.trim().isEmpty() && !"DISABLED".equalsIgnoreCase(rule)) {
+                try {
+                    java.io.InputStream is = (responseCode >= 400) ? connection.getErrorStream() : connection.getInputStream();
+                    if (is != null) {
+                        String body = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        if ("MUST_CONTAIN".equalsIgnoreCase(rule)) {
+                            if (!body.contains(kw)) {
+                                return false;
+                            }
+                        } else if ("MUST_NOT_CONTAIN".equalsIgnoreCase(rule)) {
+                            if (body.contains(kw)) {
+                                return false;
+                            }
+                        }
+                    }
+                } catch (Exception kwEx) {
+                    return false;
+                }
+            }
+
+            return true;
             
         } catch (Exception e) {
             // Error connecting, timeout, bad URL format, etc.

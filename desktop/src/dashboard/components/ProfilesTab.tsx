@@ -31,8 +31,8 @@ interface Profile {
   downSound?: string;
 }
 
-const FALLBACK_UP = ["default-app", "Up-Default.wav", "Up2.wav", "Up3.wav", "Notification Modern.wav", "Notification1.wav", "Notification2.wav"];
-const FALLBACK_DOWN = ["default-app", "Down-Default.wav", "Down Modern.wav", "Down-2.wav", "Down3.wav", "Critical-Alert.wav", "Error.wav", "Notification Modern.wav", "Notification Warning.wav", "Notification1.wav", "Notification2.wav"];
+const FALLBACK_UP = ["default-app", "no-sound", "Up-Default.wav", "Up2.wav", "Up3.wav", "Notification Modern.wav", "Notification1.wav", "Notification2.wav"];
+const FALLBACK_DOWN = ["default-app", "no-sound", "Down-Default.wav", "Down Modern.wav", "Down-2.wav", "Down3.wav", "Critical-Alert.wav", "Error.wav", "Notification Modern.wav", "Notification Warning.wav", "Notification1.wav", "Notification2.wav"];
 
 export default function ProfilesTab() {
   const [profiles, setProfiles] = React.useState<Profile[]>([]);
@@ -396,6 +396,7 @@ export default function ProfilesTab() {
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Autocomplete
+                      disableClearable
                       options={upSoundsList}
                       value={upSound}
                       onChange={(_e, val) => {
@@ -404,6 +405,11 @@ export default function ProfilesTab() {
                           playPreview(val, 'up');
                         }
                       }}
+                      sx={{
+                        userSelect: 'none',
+                        '& .MuiAutocomplete-endAdornment': { top: 'calc(50% - 14px)' },
+                        '& .MuiIconButton-root': { width: 28, height: 28, padding: 0.5 }
+                      }}
                       renderInput={(params) => (
                         <TextField {...params} label="Default Up Sound (Recovery)" size="small" />
                       )}
@@ -411,6 +417,7 @@ export default function ProfilesTab() {
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Autocomplete
+                      disableClearable
                       options={downSoundsList}
                       value={downSound}
                       onChange={(_e, val) => {
@@ -418,6 +425,11 @@ export default function ProfilesTab() {
                           setDownSound(val);
                           playPreview(val, 'down');
                         }
+                      }}
+                      sx={{
+                        userSelect: 'none',
+                        '& .MuiAutocomplete-endAdornment': { top: 'calc(50% - 14px)' },
+                        '& .MuiIconButton-root': { width: 28, height: 28, padding: 0.5 }
                       }}
                       renderInput={(params) => (
                         <TextField {...params} label="Default Down Sound (Outage)" size="small" />

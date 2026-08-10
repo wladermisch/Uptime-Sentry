@@ -163,21 +163,49 @@ export default function MainGrid() {
   const filteredHistory = getFilteredHistory();
   const profileStatus = getProfileStatus();
 
-  // Prepare chart data (e.g. last 10 entries)
-  const latestChecks = filteredHistory
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
-    .slice(-10);
+  const prepareChartData = () => {
+    if (!history || history.length === 0) {
+      return {
+        chartXAxis: ['00:00:00', '00:00:01', '00:00:02', '00:00:03', '00:00:04'],
+        latencyData: [0, 0, 0, 0, 0],
+      };
+    }
 
-  const hasData = latestChecks.length > 0;
-  
-  // Use real data or mock empty graph parameters if there is no data
-  const chartXAxis = hasData 
-    ? latestChecks.map((c) => c.timestamp.split(' ')[1] || c.timestamp)
-    : ['00:00:00', '00:00:00', '00:00:00', '00:00:00', '00:00:00'];
-    
-  const latencyData = hasData 
-    ? latestChecks.map((c) => c.durationMillis)
-    : [0, 0, 0, 0, 0];
+    if (selectedTargetId !== 'all') {
+      const latestChecks = filteredHistory
+        .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+        .slice(-12);
+      return {
+        chartXAxis: latestChecks.map((c) => c.timestamp.split(' ')[1] || c.timestamp),
+        latencyData: latestChecks.map((c) => Math.max(0, c.durationMillis)),
+      };
+    } else {
+      // Calculate true mathematical average latency across all targets per check cycle
+      const groups: Record<string, number[]> = {};
+      filteredHistory.forEach((c) => {
+        const timeKey = c.timestamp.split(' ')[1] || c.timestamp;
+        if (!groups[timeKey]) groups[timeKey] = [];
+        groups[timeKey].push(Math.max(0, c.durationMillis));
+      });
+
+      const sortedTimes = Object.keys(groups).sort().slice(-12);
+      const averages = sortedTimes.map((timeKey) => {
+        const vals = groups[timeKey];
+        const sum = vals.reduce((a, b) => a + b, 0);
+        return Math.round(sum / (vals.length || 1));
+      });
+
+      return {
+        chartXAxis: sortedTimes.length > 0 ? sortedTimes : ['00:00:00'],
+        latencyData: averages.length > 0 ? averages : [0],
+      };
+    }
+  };
+
+  const { chartXAxis, latencyData } = prepareChartData();
+  const hasData = filteredHistory.length > 0;
+  const lastCheck = filteredHistory.length > 0 ? filteredHistory[filteredHistory.length - 1] : null;
+  const lastUpdatedTime = lastCheck ? (lastCheck.timestamp.split(' ')[1] || lastCheck.timestamp) : new Date().toLocaleTimeString();
 
   if (loading) {
     return (
@@ -243,16 +271,37 @@ export default function MainGrid() {
               <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
                 Current Status
               </Typography>
-              <Box sx={{ mt: 0.5 }}>
-                <Chip
-                  label={profileStatus.label}
-                  color={profileStatus.color}
-                  sx={{ fontSize: '0.95rem', py: 1.8, px: 1, fontWeight: 'bold' }}
-                />
-              </Box>
-              <Typography variant="caption" color="text.secondary">
-                Checks running every {activeProfile?.checkInterval || 60} seconds.
-              </Typography>
+              <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justify: 'center',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    bgcolor: profileStatus.color === 'success' ? '#4caf50' : profileStatus.color === 'warning' ? '#ff9800' : '#f44336',
+                    color: '#fff',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  }}
+                >
+                  {profileStatus.color === 'success' ? (
+                    <span style={{ fontSize: 28, fontWeight: 'bold' }}>✓</span>
+                  ) : profileStatus.color === 'warning' ? (
+                    <span style={{ fontSize: 28, fontWeight: 'bold' }}>!</span>
+                  ) : (
+                    <span style={{ fontSize: 28, fontWeight: 'bold' }}>✕</span>
+                  )}
+                </Box>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
+                    {profileStatus.label}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Last updated at {lastUpdatedTime}
+                  </Typography>
+                </Box>
+              </Stack>
             </CardContent>
           </Card>
         </Grid>
@@ -260,7 +309,7 @@ export default function MainGrid() {
         {/* Latency Graph */}
         <Grid size={{ xs: 12, sm: 8 }}>
           <Card variant="outlined" sx={{ opacity: hasData ? 1 : 0.4 }}>
-            <CardContent>
+            <CardContent sx={{ pb: '12px !important' }}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 Response Latency (ms) {!hasData && '(Empty Grid State)'}
               </Typography>
@@ -273,33 +322,18 @@ export default function MainGrid() {
                   disableTicks: true,
                 }]}
                 yAxis={[{
+                  min: 0,
                   disableLine: true,
-                  disableTicks: true,
+                  disableTicks: false,
                 }]}
                 series={[{
                   data: latencyData,
-                  label: 'Latency (ms)',
                   area: true,
-                  showMark: true,
                   curve: 'natural',
                 }]}
-                height={180}
-                margin={{ top: 10, bottom: 20, left: 40, right: 10 }}
-                sx={{
-                  [`& .MuiAreaElement-root`]: {
-                    fill: "url('#latency-gradient')",
-                  },
-                }}
-                grid={{ horizontal: true }}
-                disableAxisListener={false}
-              >
-                <defs>
-                  <linearGradient id="latency-gradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#29b6f6" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#29b6f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-              </LineChart>
+                height={220}
+                margin={{ top: 10, right: 15, left: 40, bottom: 25 }}
+              />
             </CardContent>
           </Card>
         </Grid>

@@ -578,10 +578,6 @@ export default function AnalyticsTab() {
               <AccordionDetails>
                 <Grid container spacing={2} sx={{ userSelect: 'text' }}>
                   <Grid size={{ xs: 6, sm: 4 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Escalation Group:</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>Entire Team</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 4 }}>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Response Code:</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{selectedIncident.responseCode}</Typography>
                   </Grid>
@@ -629,7 +625,7 @@ export default function AnalyticsTab() {
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
                 <CommentIcon fontSize="small" color="action" />
                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                  Team Comments & Post-Mortem Notes
+                  User Investigation Notes
                 </Typography>
               </Stack>
               <Stack spacing={1.5} sx={{ mb: 2 }}>
@@ -645,7 +641,7 @@ export default function AnalyticsTab() {
               </Stack>
               <Stack direction="row" spacing={1}>
                 <TextField
-                  placeholder="Leave a comment or post-mortem notes..."
+                  placeholder="Add investigation note..."
                   size="small"
                   fullWidth
                   value={commentInput}

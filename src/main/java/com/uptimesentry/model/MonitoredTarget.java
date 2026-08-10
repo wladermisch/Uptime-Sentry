@@ -20,6 +20,11 @@ public class MonitoredTarget {
     private String profileName; // name of the associated profile
     private String upSound;
     private String downSound;
+    private String keyword;
+    private String keywordRule; // MUST_CONTAIN, MUST_NOT_CONTAIN, DISABLED
+    private List<Integer> degradedStatusCodes;
+    private int degradedLatencyThreshold = 1500; // in ms
+    private boolean paused = false;
     
     /**
      * Constructor for creating a new monitored target.
@@ -137,6 +142,46 @@ public class MonitoredTarget {
 
     public void setDownSound(String downSound) {
         this.downSound = downSound;
+    }
+
+    public String getKeyword() {
+        return keyword;
+    }
+
+    public void setKeyword(String keyword) {
+        this.keyword = keyword;
+    }
+
+    public String getKeywordRule() {
+        return keywordRule == null ? "DISABLED" : keywordRule;
+    }
+
+    public void setKeywordRule(String keywordRule) {
+        this.keywordRule = keywordRule;
+    }
+
+    public List<Integer> getDegradedStatusCodes() {
+        return degradedStatusCodes;
+    }
+
+    public void setDegradedStatusCodes(List<Integer> degradedStatusCodes) {
+        this.degradedStatusCodes = degradedStatusCodes;
+    }
+
+    public int getDegradedLatencyThreshold() {
+        return degradedLatencyThreshold <= 0 ? 1500 : degradedLatencyThreshold;
+    }
+
+    public void setDegradedLatencyThreshold(int degradedLatencyThreshold) {
+        this.degradedLatencyThreshold = degradedLatencyThreshold;
+    }
+
+    public boolean isPaused() {
+        return paused;
+    }
+
+    public void setPaused(boolean paused) {
+        this.paused = paused;
     }
 
     // Provide a toString() method for easy logging and debugging

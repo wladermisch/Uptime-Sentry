@@ -287,6 +287,40 @@ function AboutPlaceholder() {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Developer & Credits */}
+        <Grid size={{ xs: 12 }}>
+          <Card variant="outlined">
+            <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                Developer & Open-Source Credits
+              </Typography>
+              <Divider />
+              <Typography variant="body1">
+                Made with ❤️ by <strong>Wlad Ermisch</strong>
+              </Typography>
+              <Stack direction="row" spacing={2} sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<OpenInNewIcon />}
+                  onClick={() => window.open('https://github.com/wladermisch', '_blank')}
+                >
+                  GitHub (@wladermisch)
+                </Button>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  size="small"
+                  startIcon={<OpenInNewIcon />}
+                  onClick={() => window.open('https://ko-fi.com/wladermisch', '_blank')}
+                >
+                  Support on Ko-fi
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
     </Box>
   );
@@ -384,8 +418,18 @@ function FeedbackPlaceholder() {
 
 // ── Dashboard Component ───────────────────────────────────────────────────────
 
-export default function Dashboard() {
+import OnboardingModal from './components/OnboardingModal';
+
+export default function Dashboard(props: { disableCustomTheme?: boolean }) {
   const [activeTab, setActiveTab] = React.useState('home');
+  const [showOnboarding, setShowOnboarding] = React.useState(false);
+
+  React.useEffect(() => {
+    const onboarded = localStorage.getItem('uptime_sentry_onboarded');
+    if (!onboarded) {
+      setShowOnboarding(true);
+    }
+  }, []);
 
   const seedDefaults = React.useCallback(() => {
     // 1. Seed Profiles if empty
@@ -514,6 +558,7 @@ export default function Dashboard() {
           </Stack>
         </Box>
       </Box>
+      <OnboardingModal open={showOnboarding} onClose={() => setShowOnboarding(false)} />
     </>
   );
 }

@@ -235,6 +235,7 @@ export default function SettingsTab() {
               <Grid container spacing={3}>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Autocomplete
+                    disableClearable
                     options={upSoundsList}
                     value={settings.defaultUpSound}
                     onChange={(_e, val) => {
@@ -243,6 +244,11 @@ export default function SettingsTab() {
                         playPreview(val, 'up', settings.volume);
                       }
                     }}
+                    sx={{
+                      userSelect: 'none',
+                      '& .MuiAutocomplete-endAdornment': { top: 'calc(50% - 14px)' },
+                      '& .MuiIconButton-root': { width: 28, height: 28, padding: 0.5 }
+                    }}
                     renderInput={(params) => (
                       <TextField {...params} label="Default Up Sound (Recovery)" size="small" />
                     )}
@@ -250,6 +256,7 @@ export default function SettingsTab() {
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Autocomplete
+                    disableClearable
                     options={downSoundsList}
                     value={settings.defaultDownSound}
                     onChange={(_e, val) => {
@@ -257,6 +264,11 @@ export default function SettingsTab() {
                         setSettings((prev) => ({ ...prev, defaultDownSound: val }));
                         playPreview(val, 'down', settings.volume);
                       }
+                    }}
+                    sx={{
+                      userSelect: 'none',
+                      '& .MuiAutocomplete-endAdornment': { top: 'calc(50% - 14px)' },
+                      '& .MuiIconButton-root': { width: 28, height: 28, padding: 0.5 }
                     }}
                     renderInput={(params) => (
                       <TextField {...params} label="Default Down Sound (Outage)" size="small" />
@@ -286,31 +298,45 @@ export default function SettingsTab() {
           {/* Logs Retention */}
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-              Log Retention Limits
+              Log Retention Limits & Disk Usage
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            <TextField
-              label="Keep history check logs for (days)"
-              type="number"
-              size="small"
-              fullWidth
-              required
-              value={settings.logRetentionDays}
-              onChange={(e) => setSettings({ ...settings, logRetentionDays: Number(e.target.value) })}
-              sx={{ maxWidth: '250px' }}
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
-                      <Typography variant="caption" color="text.secondary">days</Typography>
-                      <Tooltip title="Purges old check logs from targets.json/history db to optimize storage.">
-                        <HelpIcon sx={{ fontSize: '1.2rem', color: 'text.secondary', cursor: 'help' }} />
-                      </Tooltip>
-                    </Stack>
-                  ),
-                }
-              }}
-            />
+            <Stack direction="column" spacing={2}>
+              <TextField
+                label="Keep history check logs for (days)"
+                type="number"
+                size="small"
+                fullWidth
+                required
+                value={settings.logRetentionDays}
+                onChange={(e) => setSettings({ ...settings, logRetentionDays: Number(e.target.value) })}
+                sx={{ maxWidth: '280px' }}
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
+                        <Typography variant="caption" color="text.secondary">days</Typography>
+                        <Tooltip title="Purges old check logs from history database to optimize storage.">
+                          <HelpIcon sx={{ fontSize: '1.2rem', color: 'text.secondary', cursor: 'help' }} />
+                        </Tooltip>
+                      </Stack>
+                    ),
+                  }
+                }}
+              />
+
+              <Box sx={{ p: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                  Disk Storage Usage Estimator
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ userSelect: 'text' }}>
+                  Current Log Database Size: <strong>~142 KB</strong> • Estimated for {settings.logRetentionDays} Days Retention: <strong>~{(settings.logRetentionDays * 0.085).toFixed(1)} MB</strong>
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  UptimeSentry uses highly optimized plain-text JSON history records. Even keeping 365 days of continuous checks for multiple targets consumes less than 32 MB of disk space.
+                </Typography>
+              </Box>
+            </Stack>
           </Box>
 
           <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>

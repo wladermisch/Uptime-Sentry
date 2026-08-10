@@ -77,6 +77,9 @@ public class AutoCheckService {
         }
 
         for (MonitoredTarget target : snapshot) {
+            if (target.isPaused()) {
+                continue; // Paused target, skip check
+            }
             Monitorable monitor;
             String type = target.getType();
             if ("HTTP".equalsIgnoreCase(type)) {
