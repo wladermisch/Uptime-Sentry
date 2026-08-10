@@ -17,18 +17,28 @@ public class MonitoredTarget {
     private String recoveryAction;    // command to execute on failure
     private List<Integer> acceptableStatusCodes; // for HTTP targets, e.g., [200, 201]
     private int consecutiveFailuresLimit = 1; // consecutive failures before alerting
+    private String profileName; // name of the associated profile
+    private String upSound;
+    private String downSound;
     
     /**
      * Constructor for creating a new monitored target.
      */
     public MonitoredTarget(int id, String name, String type, String host, int timeout, String recoveryAction, List<Integer> acceptableStatusCodes) {
-        this(id, name, type, host, timeout, recoveryAction, acceptableStatusCodes, 1);
+        this(id, name, type, host, timeout, recoveryAction, acceptableStatusCodes, 1, null);
     }
 
     /**
      * Overloaded constructor supporting failure threshold.
      */
     public MonitoredTarget(int id, String name, String type, String host, int timeout, String recoveryAction, List<Integer> acceptableStatusCodes, int consecutiveFailuresLimit) {
+        this(id, name, type, host, timeout, recoveryAction, acceptableStatusCodes, consecutiveFailuresLimit, null);
+    }
+
+    /**
+     * Overloaded constructor supporting failure threshold and profile.
+     */
+    public MonitoredTarget(int id, String name, String type, String host, int timeout, String recoveryAction, List<Integer> acceptableStatusCodes, int consecutiveFailuresLimit, String profileName) {
         this.id = id;
         this.name = name;
         this.type = type;
@@ -37,6 +47,7 @@ public class MonitoredTarget {
         this.recoveryAction = recoveryAction;
         this.acceptableStatusCodes = acceptableStatusCodes;
         this.consecutiveFailuresLimit = consecutiveFailuresLimit;
+        this.profileName = profileName;
     }
     
     // Getters and Setters
@@ -104,6 +115,30 @@ public class MonitoredTarget {
         this.consecutiveFailuresLimit = consecutiveFailuresLimit;
     }
 
+    public String getProfileName() {
+        return profileName;
+    }
+
+    public void setProfileName(String profileName) {
+        this.profileName = profileName;
+    }
+
+    public String getUpSound() {
+        return upSound;
+    }
+
+    public void setUpSound(String upSound) {
+        this.upSound = upSound;
+    }
+
+    public String getDownSound() {
+        return downSound;
+    }
+
+    public void setDownSound(String downSound) {
+        this.downSound = downSound;
+    }
+
     // Provide a toString() method for easy logging and debugging
     @Override
     public String toString() {
@@ -115,6 +150,7 @@ public class MonitoredTarget {
                 ", timeout=" + timeout +
                 ", recoveryAction='" + recoveryAction + '\'' +
                 ", consecutiveFailuresLimit=" + consecutiveFailuresLimit +
+                ", profileName='" + profileName + '\'' +
                 '}';
     }
 }

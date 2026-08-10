@@ -20,7 +20,9 @@ public class HistoryRepository {
 
     public static synchronized List<CheckResult> loadHistory() {
         if (!Files.exists(HISTORY_FILE)) {
-            return new ArrayList<>();
+            List<CheckResult> seed = generateMockHistory();
+            saveHistory(seed);
+            return seed;
         }
         try {
             String json = Files.readString(HISTORY_FILE);
@@ -31,6 +33,45 @@ public class HistoryRepository {
         } catch (IOException e) {
             return new ArrayList<>();
         }
+    }
+
+    private static List<CheckResult> generateMockHistory() {
+        List<CheckResult> list = new ArrayList<>();
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        for (int i = 50; i >= 0; i--) {
+            java.time.LocalDateTime ts = now.minusMinutes(i * 15L);
+            String timestamp = ts.format(formatter);
+
+            // Google DNS (Target ID: 1, PING)
+            boolean t1Online = true;
+            long t1Latency = 15 + (long)(Math.random() * 25);
+            if (i >= 20 && i <= 22) {
+                t1Online = false;
+                t1Latency = 0;
+            }
+            list.add(new CheckResult(1, "Google DNS", timestamp, t1Online, t1Latency, t1Online ? "Ping success" : "Ping timeout"));
+
+            // GitHub Portal (Target ID: 2, HTTP)
+            boolean t2Online = true;
+            long t2Latency = 80 + (long)(Math.random() * 120);
+            if (i >= 35 && i <= 37) {
+                t2Online = false;
+                t2Latency = 0;
+            }
+            list.add(new CheckResult(2, "GitHub Portal", timestamp, t2Online, t2Latency, t2Online ? "HTTP 200" : "HTTP 502: Bad Gateway"));
+
+            // Local API Service (Target ID: 3, HTTP)
+            boolean t3Online = true;
+            long t3Latency = 5 + (long)(Math.random() * 15);
+            if (i >= 10 && i <= 11) {
+                t3Online = false;
+                t3Latency = 0;
+            }
+            list.add(new CheckResult(3, "Local API Service", timestamp, t3Online, t3Latency, t3Online ? "HTTP 200" : "HTTP 500: Internal Server Error"));
+        }
+        return list;
     }
 
     public static synchronized void addResult(CheckResult result) {
