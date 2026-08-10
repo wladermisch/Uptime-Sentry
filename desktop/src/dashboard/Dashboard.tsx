@@ -87,8 +87,8 @@ function AboutPlaceholder() {
     const l = parseVersion(latest);
     const c = parseVersion(current);
     for (let i = 0; i < Math.max(l.length, c.length); i++) {
-      const lNum = l[i] ?? 0;
-      const cNum = c[i] ?? 0;
+      const lNum = i < l.length ? l[i] : 0;
+      const cNum = i < c.length ? c[i] : 0;
       if (lNum > cNum) return true;
       if (lNum < cNum) return false;
     }

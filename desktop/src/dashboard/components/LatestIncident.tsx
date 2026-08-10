@@ -75,10 +75,6 @@ export default function LatestIncident() {
     );
   }
 
-  const expectedResponse = targetInfo
-    ? (targetInfo.acceptableStatusCodes && targetInfo.acceptableStatusCodes.length > 0 ? targetInfo.acceptableStatusCodes.join(', ') : '200')
-    : '200 OK';
-
   if (!latestIncident) {
     return (
       <Card variant="outlined" sx={{ bgcolor: 'rgba(76, 175, 80, 0.08)', borderColor: 'success.light' }}>
@@ -95,8 +91,8 @@ export default function LatestIncident() {
     );
   }
 
-  const expectedCodes = targetInfo && targetInfo.type === 'HTTP'
-    ? (targetInfo.acceptableStatusCodes && targetInfo.acceptableStatusCodes.length > 0 ? targetInfo.acceptableStatusCodes.join(', ') : '200')
+  const expectedCodes = targetInfo?.type === 'HTTP' && targetInfo.acceptableStatusCodes?.length
+    ? targetInfo.acceptableStatusCodes.join(', ')
     : 'Reachable';
 
   const recoveryText = targetInfo && targetInfo.recoveryAction

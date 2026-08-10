@@ -53,31 +53,19 @@ export default function StatCard({
   const theme = useTheme();
   const daysInWeek = getDaysInMonth(4, 2024);
 
-  const trendColors: Record<'up' | 'down' | 'neutral', string> = {
-    up:
-      theme.palette.mode === 'light'
-        ? theme.palette.success.main
-        : theme.palette.success.dark,
-    down:
-      theme.palette.mode === 'light'
-        ? theme.palette.error.main
-        : theme.palette.error.dark,
-    neutral:
-      theme.palette.mode === 'light'
-        ? theme.palette.grey[400]
-        : theme.palette.grey[700],
-  };
+  let color: 'success' | 'error' | 'default' = 'default';
+  let trendLabel = '+5%';
+  let chartColor = theme.palette.mode === 'light' ? theme.palette.grey[400] : theme.palette.grey[700];
 
-  const labelColors: Record<'up' | 'down' | 'neutral', 'success' | 'error' | 'default'> = {
-    up: 'success',
-    down: 'error',
-    neutral: 'default',
-  };
-
-  const trendValues: Record<'up' | 'down' | 'neutral', string> = { up: '+25%', down: '-25%', neutral: '+5%' };
-
-  const color = labelColors[trend] ?? 'default';
-  const chartColor = trendColors[trend] ?? theme.palette.grey[500];
+  if (trend === 'up') {
+    color = 'success';
+    trendLabel = '+25%';
+    chartColor = theme.palette.mode === 'light' ? theme.palette.success.main : theme.palette.success.dark;
+  } else if (trend === 'down') {
+    color = 'error';
+    trendLabel = '-25%';
+    chartColor = theme.palette.mode === 'light' ? theme.palette.error.main : theme.palette.error.dark;
+  }
 
   return (
     <Card variant="outlined" sx={{ height: '100%', flexGrow: 1 }}>
@@ -97,7 +85,7 @@ export default function StatCard({
               <Typography variant="h4" component="p">
                 {value}
               </Typography>
-              <Chip size="small" color={color} label={trendValues[trend]} />
+              <Chip size="small" color={color} label={trendLabel} />
             </Stack>
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
               {interval}
