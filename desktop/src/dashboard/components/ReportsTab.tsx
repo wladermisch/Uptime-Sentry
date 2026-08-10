@@ -206,9 +206,41 @@ export default function ReportsTab() {
 
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, userSelect: 'none' }}>
+      {/* Print CSS Rules to isolate report document for PDF export */}
+      <style>{`
+        @media print {
+          @page {
+            margin: 12mm;
+            size: portrait;
+          }
+          body, html {
+            background: #ffffff !important;
+            color: #111827 !important;
+          }
+          .no-print, header, nav, aside, button, .MuiAppBar-root, .MuiDrawer-root, .MuiGrid-grid-md-4 {
+            display: none !important;
+          }
+          .printable-report {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          .printable-report * {
+            color: #111827 !important;
+            background: transparent !important;
+            border-color: #e5e7eb !important;
+          }
+        }
+      `}</style>
+
       <Grid container spacing={3}>
         {/* Left Side: Report Options Form */}
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 4 }} className="no-print">
           <Card variant="outlined">
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: 'primary.main' }}>
@@ -296,11 +328,15 @@ export default function ReportsTab() {
               <TextField
                 label="Executive Notes / Comments"
                 multiline
-                rows={3}
+                minRows={4}
                 size="small"
                 fullWidth
                 value={authorNotes}
                 onChange={(e) => setAuthorNotes(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{
+                  '& .MuiInputBase-root': { py: 1.5, px: 1.5, lineHeight: 1.5 },
+                }}
               />
 
               <Divider />
@@ -346,7 +382,7 @@ export default function ReportsTab() {
         </Grid>
 
         {/* Right Side: Live Report Document Preview */}
-        <Grid size={{ xs: 12, md: 8 }}>
+        <Grid size={{ xs: 12, md: 8 }} className="printable-report">
           <Card variant="outlined" sx={{ bgcolor: 'background.paper', p: 3, userSelect: 'text' }}>
             <Box sx={{ borderBottom: '2px solid', borderColor: 'primary.main', pb: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box>

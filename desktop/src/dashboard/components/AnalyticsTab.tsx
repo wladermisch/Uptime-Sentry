@@ -237,38 +237,46 @@ export default function AnalyticsTab() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </Box>
-            <List dense sx={{ p: 0, overflow: 'auto', flexGrow: 1 }}>
-              {filteredTargets.map((t) => (
-                <ListItemButton
-                  key={t.id}
-                  selected={selectedTarget?.id === t.id}
-                  onClick={() => setSelectedTarget(t)}
-                  sx={{
-                    borderRadius: 1,
-                    mb: 0.2,
-                    py: 0.3,
-                    minHeight: 36,
-                    '&.Mui-selected': {
-                      bgcolor: 'action.selected',
-                      fontWeight: 'bold',
-                    }
-                  }}
-                >
-                  <ListItemText
-                    primary={
-                      <Typography variant="body2" sx={{ fontWeight: selectedTarget?.id === t.id ? 'bold' : 'medium', fontSize: '0.82rem', lineHeight: 1.2 }}>
-                        {t.name}
-                      </Typography>
-                    }
-                    secondary={
-                      <Typography variant="caption" sx={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', display: 'block', fontSize: '0.72rem', lineHeight: 1.1 }}>
-                        {t.type} • {t.host}
-                      </Typography>
-                    }
-                  />
-                </ListItemButton>
-              ))}
-            </List>
+            {/* List Wrapper to prevent item expansion */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', flexGrow: 1, overflowY: 'auto' }}>
+              <List dense sx={{ p: 0, width: '100%' }}>
+                {filteredTargets.map((t) => (
+                  <ListItemButton
+                    key={t.id}
+                    selected={selectedTarget?.id === t.id}
+                    onClick={() => setSelectedTarget(t)}
+                    sx={{
+                      width: '100%',
+                      flexGrow: 0,
+                      flexShrink: 0,
+                      alignSelf: 'flex-start',
+                      borderRadius: 1,
+                      mb: 0.5,
+                      py: 0.4,
+                      px: 1.5,
+                      minHeight: 36,
+                      '&.Mui-selected': {
+                        bgcolor: 'action.selected',
+                        fontWeight: 'bold',
+                      }
+                    }}
+                  >
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" sx={{ fontWeight: selectedTarget?.id === t.id ? 'bold' : 'medium', fontSize: '0.84rem', lineHeight: 1.2 }}>
+                          {t.name}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography variant="caption" sx={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', display: 'block', fontSize: '0.72rem', lineHeight: 1.1 }}>
+                          {t.type} • {t.host}
+                        </Typography>
+                      }
+                    />
+                  </ListItemButton>
+                ))}
+              </List>
+            </Box>
           </Box>
         </Grid>
 

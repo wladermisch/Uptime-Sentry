@@ -246,45 +246,53 @@ export default function ProfilesTab() {
                 New
               </Button>
             </Box>
-            <List dense sx={{ p: 0, overflow: 'auto', flexGrow: 1 }}>
-              {filteredProfiles.map((p) => (
-                <ListItemButton
-                  key={p.id}
-                  selected={selectedId === p.id}
-                  onClick={() => handleSelectProfile(p)}
-                  sx={{
-                    borderRadius: 1,
-                    mb: 0.2,
-                    py: 0.3,
-                    minHeight: 36,
-                    '&.Mui-selected': {
-                      bgcolor: 'action.selected',
-                      fontWeight: 'bold',
-                    }
-                  }}
-                >
-                  <ListItemText
-                    primary={
-                      <Typography variant="body2" sx={{ fontWeight: selectedId === p.id ? 'bold' : 'medium', fontSize: '0.82rem', lineHeight: 1.2 }}>
-                        {p.name}
-                      </Typography>
-                    }
-                    secondary={
-                      <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.72rem', lineHeight: 1.1 }}>
-                        {p.checkInterval}s interval
-                      </Typography>
-                    }
-                  />
-                </ListItemButton>
-              ))}
-              {filteredProfiles.length === 0 && (
-                <Box sx={{ p: 2, textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary">
-                    No profiles found
-                  </Typography>
-                </Box>
-              )}
-            </List>
+            {/* List Wrapper to prevent item expansion */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', flexGrow: 1, overflowY: 'auto' }}>
+              <List dense sx={{ p: 0, width: '100%' }}>
+                {filteredProfiles.map((p) => (
+                  <ListItemButton
+                    key={p.id}
+                    selected={selectedId === p.id}
+                    onClick={() => handleSelectProfile(p)}
+                    sx={{
+                      width: '100%',
+                      flexGrow: 0,
+                      flexShrink: 0,
+                      alignSelf: 'flex-start',
+                      borderRadius: 1,
+                      mb: 0.5,
+                      py: 0.4,
+                      px: 1.5,
+                      minHeight: 36,
+                      '&.Mui-selected': {
+                        bgcolor: 'action.selected',
+                        fontWeight: 'bold',
+                      }
+                    }}
+                  >
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" sx={{ fontWeight: selectedId === p.id ? 'bold' : 'medium', fontSize: '0.84rem', lineHeight: 1.2 }}>
+                          {p.name}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.72rem', lineHeight: 1.1 }}>
+                          {p.checkInterval}s interval
+                        </Typography>
+                      }
+                    />
+                  </ListItemButton>
+                ))}
+                {filteredProfiles.length === 0 && (
+                  <Box sx={{ p: 2, textAlign: 'center', width: '100%' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      No profiles found
+                    </Typography>
+                  </Box>
+                )}
+              </List>
+            </Box>
           </Box>
         </Grid>
 

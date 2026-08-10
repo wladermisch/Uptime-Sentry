@@ -55,6 +55,7 @@ public class ApiServer {
         app.delete("/api/targets/{id}",     targetsCtrl::remove);
         app.post("/api/targets/{id}/check", targetsCtrl::checkOne);
         app.post("/api/targets/check-dryrun", targetsCtrl::checkDryRun);
+        app.post("/api/check/test",           targetsCtrl::checkDryRun);
 
         app.get("/api/history",             historyCtrl::getHistory);
         app.delete("/api/history",          historyCtrl::clearHistory);

@@ -7,8 +7,10 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
+import CancelIcon from '@mui/icons-material/Cancel';
 import { LineChart } from '@mui/x-charts/LineChart';
 
 import CustomizedDataGrid from './CustomizedDataGrid';
@@ -272,27 +274,13 @@ export default function MainGrid() {
                 Current Status
               </Typography>
               <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justify: 'center',
-                    width: 48,
-                    height: 48,
-                    borderRadius: '50%',
-                    bgcolor: profileStatus.color === 'success' ? '#4caf50' : profileStatus.color === 'warning' ? '#ff9800' : '#f44336',
-                    color: '#fff',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                  }}
-                >
-                  {profileStatus.color === 'success' ? (
-                    <span style={{ fontSize: 28, fontWeight: 'bold' }}>✓</span>
-                  ) : profileStatus.color === 'warning' ? (
-                    <span style={{ fontSize: 28, fontWeight: 'bold' }}>!</span>
-                  ) : (
-                    <span style={{ fontSize: 28, fontWeight: 'bold' }}>✕</span>
-                  )}
-                </Box>
+                {profileStatus.color === 'success' ? (
+                  <CheckCircleIcon sx={{ fontSize: 44, color: 'success.main', flexShrink: 0 }} />
+                ) : profileStatus.color === 'warning' ? (
+                  <WarningIcon sx={{ fontSize: 44, color: 'warning.main', flexShrink: 0 }} />
+                ) : (
+                  <CancelIcon sx={{ fontSize: 44, color: 'error.main', flexShrink: 0 }} />
+                )}
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
                     {profileStatus.label}
