@@ -1,6 +1,6 @@
 [package]
 name = "uptime-sentry"
-version = "1.0.0"
+version = "0.3.1"
 description = "Uptime Sentry Desktop"
 authors = []
 license = ""

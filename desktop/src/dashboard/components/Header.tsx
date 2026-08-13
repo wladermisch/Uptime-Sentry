@@ -44,7 +44,7 @@ export default function Header() {
 
       // 1. Check if there's a cached update available
       const latestTag = localStorage.getItem('uptime_sentry_latest_release');
-      if (latestTag && latestTag !== 'v1.0.0') {
+      if (latestTag && latestTag !== 'v0.3.1') {
         items.push({
           id: 'update-notice',
           title: 'Update Available',

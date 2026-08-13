@@ -106,7 +106,7 @@ function AboutPlaceholder() {
         const data = await res.json();
         const latestTag = data.tag_name;
         
-        if (isNewerVersion(latestTag, 'v1.0.0')) {
+        if (isNewerVersion(latestTag, 'v0.3.1')) {
           setUpdateStatus(`A new version (${latestTag}) is available!`);
           setShowUpdateButton(true);
           const exeAsset = data.assets?.find((asset: { name: string; browser_download_url: string }) => asset.name.endsWith('.exe'));
@@ -116,7 +116,7 @@ function AboutPlaceholder() {
             setLatestReleaseUrl(data.html_url);
           }
         } else {
-          setUpdateStatus('You are running the latest version (v1.0.0).');
+          setUpdateStatus('You are running the latest version (v0.3.1).');
         }
       } else {
         setUpdateStatus('No release tags found. Checked: https://github.com/wladermisch/Uptime-Sentry/releases');
@@ -189,8 +189,8 @@ function AboutPlaceholder() {
                 <InfoIcon fontSize="small" /> Version Info
               </Typography>
               <Divider sx={{ my: 1 }} />
-              <Typography variant="body2">Desktop App: v1.0.0</Typography>
-              <Typography variant="body2">Java Backend: v1.0.0 (Javalin Server)</Typography>
+              <Typography variant="body2">Desktop App: v0.3.1</Typography>
+              <Typography variant="body2">Java Backend: v0.3.1 (Javalin Server)</Typography>
               <Box sx={{ mt: 1.5 }}>
                 <Button size="small" variant="outlined" onClick={handleCheckUpdates} disabled={checking}>
                   {checking ? 'Checking...' : 'Check for Updates'}

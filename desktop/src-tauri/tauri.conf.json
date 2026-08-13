@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Uptime Sentry",
-  "version": "1.0.0",
+  "version": "0.3.1",
   "identifier": "com.uptimesentry.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -37,4 +37,3 @@
     ]
   }
 }
-
