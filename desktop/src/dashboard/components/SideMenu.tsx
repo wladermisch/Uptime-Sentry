@@ -57,7 +57,7 @@ export default function SideMenu() {
             Uptime Sentry
           </Typography>
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            v0.3.1
+            v0.4.0
           </Typography>
         </Box>
       </Box>
