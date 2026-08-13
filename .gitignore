@@ -51,3 +51,8 @@ releases/
 targets.json
 targets.json.bak
 targets.json.example
+
+# Local release scripts
+release.py
+release.bat
+UptimeSentry_Installer.iss
