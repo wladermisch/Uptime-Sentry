@@ -46,18 +46,16 @@ Uptime-Sentry enables you to automatically monitor the reachability and performa
 
 ### Installation
 
-1. **Install Java 21 or later**
-   - Download and install Java from [adoptium.net](https://adoptium.net/)
-
-2. **Download the Setup Installer**
+1. **Download the Setup Installer**
    - Get the latest installer executable `UptimeSentry_Setup_v[version].exe` from [github.com/wladermisch/Uptime-Sentry/releases](https://github.com/wladermisch/Uptime-Sentry/releases)
 
-3. **Run the Installer**
-   - Run the setup installer. The app will launch both the Tauri desktop client and start the embedded Java API backend in the background.
+2. **Run the Installer**
+   - Run the setup installer. The desktop installer bundles a lightweight Java Runtime Environment (JRE) automatically, meaning you do not need to install Java on your machine to run the desktop application.
+   - The app will launch the Tauri desktop client and start the embedded Java API backend automatically in the background.
 
 ### Running CLI / Backend Directly
 
-To run the Java application directly from a terminal:
+If you prefer to run the Java console backend directly without the desktop shell, you will need Java 21 or later installed:
 
 - **Interactive Console Menu**:
   ```
@@ -67,29 +65,3 @@ To run the Java application directly from a terminal:
   ```
   java -jar uptimesentry.jar --api
   ```
-
-## Build and Release
-
-To build a release package and compile the desktop installer:
-
-1. **Prerequisites**: Ensure the following tools are installed and configured on your PATH:
-   - Python 3
-   - Node.js & npm
-   - Java 21 JDK & Maven (mvn)
-   - Inno Setup 6 (for packaging)
-   - Git & GitHub CLI (optional, for git tags and automated release publishing)
-
-2. **Run Release Script**:
-   Run the batch script wrapper at the root of the repository:
-   ```cmd
-   release.bat
-   ```
-3. **Follow the Prompts**:
-   Enter the desired target version (e.g. `0.3.1`). The script will automatically:
-   - Sync the version string in configuration files (`package.json`, `tauri.conf.json`, `Cargo.toml`, `pom.xml`) and TypeScript source code.
-   - Build the Java backend fat JAR.
-   - Build the Tauri release package.
-   - Assemble the build artifacts in a distribution directory.
-   - Compile the Inno Setup installer.
-   - Commit, tag, and push version updates to Git.
-   - Create a GitHub release and upload the compiled setup installer.

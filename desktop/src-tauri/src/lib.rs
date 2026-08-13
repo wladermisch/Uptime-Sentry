@@ -40,8 +40,17 @@ fn find_jar() -> Option<PathBuf> {
     None
 }
 
-/// Finds the java.exe binary path.
 fn find_java_exe() -> PathBuf {
+    // 1. Check bundled JRE in same directory as executable (production / installed)
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            let candidate = parent.join("jre").join("bin").join("java.exe");
+            if candidate.exists() {
+                return candidate;
+            }
+        }
+    }
+
     if let Ok(val) = std::env::var("JAVA_HOME") {
         let p = PathBuf::from(val).join("bin").join("java.exe");
         if p.exists() {
