@@ -31,7 +31,7 @@ public class HttpMonitor implements Monitorable {
      */
     @Override
     public boolean checkAvailability() {
-        String host = target.getHost();
+        String host = com.uptimesentry.util.NetworkUtil.normalizeHttpUrl(target.getHost());
         int timeout = target.getTimeout();
         
         try {

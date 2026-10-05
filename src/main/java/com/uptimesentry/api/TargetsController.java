@@ -139,12 +139,13 @@ public class TargetsController {
             long startTime = System.currentTimeMillis();
             if ("HTTP".equalsIgnoreCase(type)) {
                 try {
-                    java.net.HttpURLConnection connection = (java.net.HttpURLConnection) new java.net.URL(target.getHost()).openConnection();
+                    String urlStr = com.uptimesentry.util.NetworkUtil.normalizeHttpUrl(target.getHost());
+                    java.net.HttpURLConnection connection = (java.net.HttpURLConnection) new java.net.URL(urlStr).openConnection();
                     connection.setConnectTimeout(target.getTimeout() * 1000);
                     connection.setReadTimeout(target.getTimeout() * 1000);
                     int responseCode = connection.getResponseCode();
                     if (target.getAcceptableStatusCodes() == null || target.getAcceptableStatusCodes().isEmpty()) {
-                        online = (responseCode == 200);
+                        online = (responseCode >= 200 && responseCode < 400);
                     } else {
                         online = target.getAcceptableStatusCodes().contains(responseCode);
                     }
@@ -155,9 +156,8 @@ public class TargetsController {
                 }
             } else {
                 try {
-                    boolean reachable = java.net.InetAddress.getByName(target.getHost()).isReachable(target.getTimeout() * 1000);
-                    online = reachable;
-                    message = reachable ? "Ping success" : "Ping timeout";
+                    online = com.uptimesentry.util.NetworkUtil.ping(target.getHost(), target.getTimeout());
+                    message = online ? "Ping success" : "Ping timeout";
                 } catch (Exception e) {
                     online = false;
                     message = "Ping failed: " + e.getMessage();

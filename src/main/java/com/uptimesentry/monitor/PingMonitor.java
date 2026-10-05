@@ -35,13 +35,12 @@ public class PingMonitor implements Monitorable {
 
         try {
             long startTime = System.currentTimeMillis();
-            boolean reachable = java.net.InetAddress.getByName(host).isReachable(timeout * 1000);
+            boolean reachable = com.uptimesentry.util.NetworkUtil.ping(host, timeout);
             long endTime = System.currentTimeMillis();
-            this.lastResponseTime = endTime - startTime;
+            this.lastResponseTime = reachable ? (endTime - startTime) : -1;
             return reachable;
         } catch (Exception e) {
-            // Handle exceptions (e.g., unknown host, network errors)
-            this.lastResponseTime = -1; // Indicate failure with -1, important for CheckResult
+            this.lastResponseTime = -1;
             return false;
         }
     }
