@@ -1,25 +1,8 @@
 import * as React from 'react';
-import MuiAvatar from '@mui/material/Avatar';
-import MuiListItemAvatar from '@mui/material/ListItemAvatar';
 import MenuItem from '@mui/material/MenuItem';
-import ListItemText from '@mui/material/ListItemText';
-import Select, { SelectChangeEvent, selectClasses } from '@mui/material/Select';
-import { styled } from '@mui/material/styles';
-import DevicesRoundedIcon from '@mui/icons-material/DevicesRounded';
-import Typography from '@mui/material/Typography';
-
-const Avatar = styled(MuiAvatar)(({ theme }) => ({
-  width: 28,
-  height: 28,
-  backgroundColor: (theme.vars || theme).palette.background.paper,
-  color: (theme.vars || theme).palette.text.secondary,
-  border: `1px solid ${(theme.vars || theme).palette.divider}`,
-}));
-
-const ListItemAvatar = styled(MuiListItemAvatar)({
-  minWidth: 0,
-  marginRight: 12,
-});
+import Select, { SelectChangeEvent } from '@mui/material/Select';
+import Box from '@mui/material/Box';
+import { fonts } from '../../shared-theme/themePrimitives';
 
 interface Profile {
   id: string;
@@ -30,6 +13,7 @@ interface Profile {
   backgroundRunning: boolean;
 }
 
+/** Active profile switcher. Writes the active id and announces `profile-changed`. */
 export default function SelectContent() {
   const [profiles, setProfiles] = React.useState<Profile[]>([]);
   const [activeId, setActiveId] = React.useState('');
@@ -57,11 +41,15 @@ export default function SelectContent() {
     loadFromStorage();
     const handler = () => { loadFromStorage(); };
     window.addEventListener('profiles-updated', handler);
-    return () => { window.removeEventListener('profiles-updated', handler); };
+    window.addEventListener('profile-changed', handler);
+    return () => {
+      window.removeEventListener('profiles-updated', handler);
+      window.removeEventListener('profile-changed', handler);
+    };
   }, [loadFromStorage]);
 
   const handleChange = (event: SelectChangeEvent) => {
-    const newId = event.target.value as string;
+    const newId = event.target.value;
     setActiveId(newId);
     localStorage.setItem('uptime_sentry_active_id', newId);
     window.dispatchEvent(new CustomEvent('profile-changed', { detail: newId }));
@@ -69,47 +57,36 @@ export default function SelectContent() {
 
   return (
     <Select
-      labelId="profile-select-label"
       id="profile-select"
-      value={activeId}
+      value={profiles.some((p) => p.id === activeId) ? activeId : ''}
       onChange={handleChange}
       displayEmpty
-      fullWidth
-      sx={{
-        maxHeight: 56,
-        width: '100%',
-        [`& .${selectClasses.select}`]: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: '2px',
-          pl: 1,
-        },
+      size="small"
+      inputProps={{ 'aria-label': 'Active profile' }}
+      renderValue={(value) => {
+        const p = profiles.find((x) => x.id === value);
+        return (
+          <Box component="span" sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+            <Box component="span" sx={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: '0.1em', color: 'text.secondary' }}>
+              PROFILE
+            </Box>
+            <Box component="span" sx={{ fontWeight: 600 }}>{p ? p.name : 'No profile'}</Box>
+          </Box>
+        );
       }}
+      sx={{ minWidth: 220, height: 36 }}
     >
       {profiles.map((p) => (
-        <MenuItem key={p.id} value={p.id}>
-          <ListItemAvatar>
-            <Avatar alt={p.name}>
-              <DevicesRoundedIcon sx={{ fontSize: '1rem' }} />
-            </Avatar>
-          </ListItemAvatar>
-          <ListItemText 
-            primary={
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {p.name}
-              </Typography>
-            } 
-            secondary={
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {p.checkInterval}s interval
-              </Typography>
-            }
-          />
+        <MenuItem key={p.id} value={p.id} sx={{ display: 'flex', justifyContent: 'space-between', gap: 3 }}>
+          <span>{p.name}</span>
+          <Box component="span" sx={{ fontFamily: fonts.mono, fontSize: 12, color: 'text.secondary' }}>
+            every {p.checkInterval} s
+          </Box>
         </MenuItem>
       ))}
       {profiles.length === 0 && (
-        <MenuItem value="">
-          <ListItemText primary="No Profiles" />
+        <MenuItem value="" disabled>
+          No profiles yet
         </MenuItem>
       )}
     </Select>

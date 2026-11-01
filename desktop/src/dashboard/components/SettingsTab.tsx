@@ -49,12 +49,25 @@ const FALLBACK_DOWN = ["Down-Default.wav", "Down Modern.wav", "Down-2.wav", "Dow
 export default function SettingsTab() {
   const [settings, setSettings] = React.useState<Settings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = React.useState(false);
+  const [storage, setStorage] = React.useState<{ checks: number; bytes: number; oldest: string | null } | null>(null);
   const [upSoundsList, setUpSoundsList] = React.useState<string[]>(FALLBACK_UP);
   const [downSoundsList, setDownSoundsList] = React.useState<string[]>(FALLBACK_DOWN);
 
   const previewTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch sounds list from Javalin API
+  React.useEffect(() => {
+    // Real history size, read from the monitoring service.
+    fetch('http://127.0.0.1:8765/api/history')
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+      .then((text) => {
+        const list = JSON.parse(text) as { timestamp: string }[];
+        const oldest = list.reduce<string | null>((m, c) => (m === null || c.timestamp < m ? c.timestamp : m), null);
+        setStorage({ checks: list.length, bytes: new Blob([text]).size, oldest });
+      })
+      .catch(() => { setStorage(null); });
+  }, []);
+
   React.useEffect(() => {
     fetch('http://127.0.0.1:8765/api/audio/list')
       .then((r) => r.json())
@@ -327,13 +340,15 @@ export default function SettingsTab() {
 
               <Box sx={{ p: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                  Disk Storage Usage Estimator
+                  Check history
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ userSelect: 'text' }}>
-                  Current Log Database Size: <strong>~142 KB</strong> • Estimated for {settings.logRetentionDays} Days Retention: <strong>~{(settings.logRetentionDays * 0.085).toFixed(1)} MB</strong>
+                  {storage
+                    ? <>Recorded checks: <strong>{storage.checks}</strong> · Size: <strong>{storage.bytes < 1024 ? `${storage.bytes} B` : `${(storage.bytes / 1024).toFixed(1)} KB`}</strong>{storage.oldest ? <> · Oldest: <strong>{storage.oldest}</strong></> : null}</>
+                    : 'Check history is unavailable while the monitoring service is unreachable.'}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                  UptimeSentry uses highly optimized plain-text JSON history records. Even keeping 365 days of continuous checks for multiple targets consumes less than 32 MB of disk space.
+                  The monitoring service currently keeps the latest 200 checks across all targets. The retention period above is saved but not applied yet.
                 </Typography>
               </Box>
             </Stack>

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { nextTargetId } from '../targetIds';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -193,10 +194,12 @@ export default function TargetsTab() {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        const latency = data.responseTime || 0;
-        let status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' = data.online ? 'ONLINE' : 'OFFLINE';
-        if (data.online && latency > degradedLatency) {
+        // The backend answers with a CheckResult: { success, durationMillis, message }.
+        const data = (await res.json()) as { success?: boolean; durationMillis?: number; message?: string };
+        const online = data.success === true;
+        const latency = Math.max(0, data.durationMillis ?? 0);
+        let status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' = online ? 'ONLINE' : 'OFFLINE';
+        if (online && latency > degradedLatency) {
           status = 'DEGRADED';
         }
         setDryRunResult({
@@ -380,7 +383,7 @@ export default function TargetsTab() {
     } else {
       // Add mode
       const newTarget: Target = {
-        id: Date.now(),
+        id: nextTargetId(targets),
         profileId: activeProfile.id,
         name,
         type,

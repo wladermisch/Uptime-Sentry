@@ -1,78 +1,114 @@
 import * as React from 'react';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import Stack from '@mui/material/Stack';
-import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
-import AnalyticsRoundedIcon from '@mui/icons-material/AnalyticsRounded';
-import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
-import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
-import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
-import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
-import HelpRoundedIcon from '@mui/icons-material/HelpRounded';
-import ChecklistRoundedIcon from '@mui/icons-material/ChecklistRounded';
-import TrackChangesRoundedIcon from '@mui/icons-material/TrackChangesRounded';
+import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
+import Tooltip from '@mui/material/Tooltip';
+import { navItems, secondaryNavItems, navigate } from '../nav';
+import { fonts, gray, ink, paper, signal } from '../../shared-theme/themePrimitives';
 
-const mainListItems = [
-  { text: 'Home', value: 'home', icon: <HomeRoundedIcon /> },
-  { text: 'Profiles', value: 'profiles', icon: <ChecklistRoundedIcon /> },
-  { text: 'Targets', value: 'targets', icon: <TrackChangesRoundedIcon /> },
-  { text: 'Analytics', value: 'analytics', icon: <AnalyticsRoundedIcon /> },
-  { text: 'Reports', value: 'reports', icon: <AssignmentRoundedIcon /> },
-];
-
-const secondaryListItems = [
-  { text: 'Settings', value: 'settings', icon: <SettingsRoundedIcon /> },
-  { text: 'About', value: 'about', icon: <InfoRoundedIcon /> },
-  { text: 'Feedback', value: 'feedback', icon: <HelpRoundedIcon /> },
-];
+function RailItem(props: {
+  item: { text: string; value: string; icon: React.ReactNode };
+  active: boolean;
+  badge?: number;
+}) {
+  const { item, active, badge } = props;
+  const label = badge ? `${item.text}, ${badge} down` : item.text;
+  return (
+    <Tooltip title={label} placement="right" disableInteractive enterDelay={600}>
+      <ButtonBase
+        onClick={() => { navigate(item.value); }}
+        aria-current={active ? 'page' : undefined}
+        aria-label={label}
+        sx={{
+          position: 'relative',
+          width: 64,
+          py: 1,
+          borderRadius: 1.5,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5,
+          color: active ? ink : gray[400],
+          backgroundColor: active ? paper : 'transparent',
+          transition: 'background-color 160ms ease-out, color 160ms ease-out',
+          '& svg': { fontSize: 22 },
+          '&:hover': { color: active ? ink : paper, backgroundColor: active ? paper : gray[800] },
+          '&:focus-visible': { outline: `2px solid ${paper}`, outlineOffset: 2 },
+        }}
+      >
+        {item.icon}
+        <Box component="span" sx={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2, letterSpacing: '0.01em' }}>
+          {item.text}
+        </Box>
+        {badge ? (
+          <Box
+            component="span"
+            aria-hidden="true"
+            sx={{
+              position: 'absolute',
+              top: 4,
+              right: 8,
+              minWidth: 18,
+              height: 18,
+              px: 0.5,
+              borderRadius: 9,
+              backgroundColor: signal.down,
+              color: '#FFFFFF',
+              fontFamily: fonts.mono,
+              fontSize: 11,
+              fontWeight: 700,
+              lineHeight: '18px',
+              textAlign: 'center',
+            }}
+          >
+            {badge}
+          </Box>
+        ) : null}
+      </ButtonBase>
+    </Tooltip>
+  );
+}
 
 export default function MenuContent() {
   const [active, setActive] = React.useState('home');
+  const [downCount, setDownCount] = React.useState(0);
 
   React.useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
+    const onTab = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
       if (detail) setActive(detail);
     };
-    window.addEventListener('nav-tab', handler);
-    return () => { window.removeEventListener('nav-tab', handler); };
+    const onSummary = (e: Event) => {
+      const detail = (e as CustomEvent<{ down: number }>).detail;
+      setDownCount(detail?.down ?? 0);
+    };
+    window.addEventListener('nav-tab', onTab);
+    window.addEventListener('board-summary', onSummary);
+    return () => {
+      window.removeEventListener('nav-tab', onTab);
+      window.removeEventListener('board-summary', onSummary);
+    };
   }, []);
 
-  const handleNav = (tab: string) => {
-    window.dispatchEvent(new CustomEvent('nav-tab', { detail: tab }));
-  };
-
   return (
-    <Stack sx={{ flexGrow: 1, p: 1, justifyContent: 'space-between' }}>
-      <List dense>
-        {mainListItems.map((item) => (
-          <ListItem key={item.value} disablePadding sx={{ display: 'block' }}>
-            <ListItemButton 
-              selected={active === item.value}
-              onClick={() => { handleNav(item.value); }}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
+    <Box
+      component="nav"
+      aria-label="Main"
+      sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', py: 1.5 }}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {navItems.map((item) => (
+          <RailItem
+            key={item.value}
+            item={item}
+            active={active === item.value}
+            badge={item.value === 'home' ? downCount : undefined}
+          />
         ))}
-      </List>
-      <List dense>
-        {secondaryListItems.map((item) => (
-          <ListItem key={item.value} disablePadding sx={{ display: 'block' }}>
-            <ListItemButton 
-              selected={active === item.value}
-              onClick={() => handleNav(item.value)}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
+      </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {secondaryNavItems.map((item) => (
+          <RailItem key={item.value} item={item} active={active === item.value} />
         ))}
-      </List>
-    </Stack>
+      </Box>
+    </Box>
   );
 }

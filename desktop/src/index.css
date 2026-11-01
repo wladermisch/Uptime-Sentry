@@ -1,7 +1,67 @@
+@import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource-variable/jetbrains-mono';
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
+
+html, body, #root {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+  font-family: "Archivo Variable", "Segoe UI", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  background: #E6E8EB;
+  color: #0B0D10;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root {
+  --board-head-bg: #0B0D10;
+  --board-head-rule: #1C1F24;
+}
+[data-mui-color-scheme="dark"] {
+  --board-head-bg: #16181C;
+  --board-head-rule: #2A2D33;
+}
+
+[data-mui-color-scheme="dark"] body {
+  background: #0B0D10;
+  color: #F2F2EE;
+}
+
+::selection {
+  background: #0B0D10;
+  color: #F2F2EE;
+}
+[data-mui-color-scheme="dark"] ::selection {
+  background: #F2F2EE;
+  color: #0B0D10;
+}
+
+/* Scrollbars carry the neutral ramp instead of the browser default. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #9A9FA6 transparent;
+}
+[data-mui-color-scheme="dark"] * {
+  scrollbar-color: #4A4F56 transparent;
+}
+
+:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

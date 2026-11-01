@@ -7,7 +7,7 @@ import { toggleButtonClasses } from '@mui/material/ToggleButton';
 import CheckBoxOutlineBlankRoundedIcon from '@mui/icons-material/CheckBoxOutlineBlankRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded';
-import { gray, brand } from '../themePrimitives';
+import { gray, brand, ink, paper } from '../themePrimitives';
 
 /* eslint-disable import/prefer-default-export */
 export const inputsCustomizations: Components<Theme> = {
@@ -57,29 +57,23 @@ export const inputsCustomizations: Components<Theme> = {
               variant: 'contained',
             },
             style: {
-              color: 'white',
-              backgroundColor: gray[900],
-              backgroundImage: `linear-gradient(to bottom, ${gray[700]}, ${gray[800]})`,
-              boxShadow: `inset 0 1px 0 ${gray[600]}, inset 0 -1px 0 1px hsl(220, 0%, 0%)`,
-              border: `1px solid ${gray[700]}`,
+              color: '#FFFFFF',
+              backgroundColor: ink,
+              border: `1px solid ${ink}`,
               '&:hover': {
-                backgroundImage: 'none',
                 backgroundColor: gray[700],
-                boxShadow: 'none',
+                borderColor: gray[700],
               },
               '&:active': {
                 backgroundColor: gray[800],
               },
               ...theme.applyStyles('dark', {
-                color: 'black',
-                backgroundColor: gray[50],
-                backgroundImage: `linear-gradient(to bottom, ${gray[100]}, ${gray[50]})`,
-                boxShadow: 'inset 0 -1px 0  hsl(220, 30%, 80%)',
-                border: `1px solid ${gray[50]}`,
+                color: ink,
+                backgroundColor: paper,
+                border: `1px solid ${paper}`,
                 '&:hover': {
-                  backgroundImage: 'none',
                   backgroundColor: gray[300],
-                  boxShadow: 'none',
+                  borderColor: gray[300],
                 },
                 '&:active': {
                   backgroundColor: gray[400],
@@ -93,18 +87,15 @@ export const inputsCustomizations: Components<Theme> = {
               variant: 'contained',
             },
             style: {
-              color: 'white',
-              backgroundColor: brand[300],
-              backgroundImage: `linear-gradient(to bottom, ${alpha(brand[400], 0.8)}, ${brand[500]})`,
-              boxShadow: `inset 0 2px 0 ${alpha(brand[200], 0.2)}, inset 0 -2px 0 ${alpha(brand[700], 0.4)}`,
+              color: '#FFFFFF',
+              backgroundColor: brand[500],
               border: `1px solid ${brand[500]}`,
               '&:hover': {
                 backgroundColor: brand[700],
-                boxShadow: 'none',
+                borderColor: brand[700],
               },
               '&:active': {
-                backgroundColor: brand[700],
-                backgroundImage: 'none',
+                backgroundColor: brand[800],
               },
             },
           },
@@ -392,29 +383,39 @@ export const inputsCustomizations: Components<Theme> = {
           borderColor: gray[400],
         },
         [`&.${outlinedInputClasses.focused}`]: {
-          outline: `3px solid ${alpha(brand[500], 0.5)}`,
-          borderColor: brand[400],
+          outline: `2px solid ${alpha(ink, 0.55)}`,
+          outlineOffset: 1,
+          borderColor: gray[600],
         },
         ...theme.applyStyles('dark', {
           '&:hover': {
             borderColor: gray[500],
           },
+          [`&.${outlinedInputClasses.focused}`]: {
+            outline: `2px solid ${alpha(paper, 0.6)}`,
+            borderColor: gray[400],
+          },
         }),
+        // Fixed heights apply to single-line fields only; multiline fields grow with their rows.
         variants: [
           {
-            props: {
-              size: 'small',
-            },
+            props: ({ ownerState }) => ownerState.size === 'small' && !ownerState.multiline,
             style: {
               height: '2.25rem',
             },
           },
           {
-            props: {
-              size: 'medium',
-            },
+            props: ({ ownerState }) => ownerState.size !== 'small' && !ownerState.multiline,
             style: {
               height: '2.5rem',
+            },
+          },
+          {
+            props: ({ ownerState }) => !!ownerState.multiline,
+            style: {
+              height: 'auto',
+              alignItems: 'flex-start',
+              lineHeight: 1.5,
             },
           },
         ],

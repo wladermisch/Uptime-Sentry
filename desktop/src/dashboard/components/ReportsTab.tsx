@@ -1,7 +1,5 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Grid from '@mui/material/Grid';
 import Button from '@mui/material/Button';
@@ -11,14 +9,11 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
-import Chip from '@mui/material/Chip';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -26,7 +21,15 @@ import DialogActions from '@mui/material/DialogActions';
 import DownloadIcon from '@mui/icons-material/Download';
 import PrintIcon from '@mui/icons-material/Print';
 import DescriptionIcon from '@mui/icons-material/Description';
-import AssessmentIcon from '@mui/icons-material/Assessment';
+import { fonts, signal } from '../../shared-theme/themePrimitives';
+import { CheckResult, formatClock } from '../home/boardModel';
+import {
+  Incident, WindowStats, checksFor, computeIncidents, coverageStart, daysAgo, fetchHistory, formatDateTime,
+  formatPct, formatSpan, fromDateInput, toDateInput, windowStats, BACKEND_HISTORY_LIMIT,
+} from '../historyStats';
+
+const APP_VERSION = 'v0.4.0';
+const mono = { fontFamily: fonts.mono, fontVariantNumeric: 'tabular-nums' } as const;
 
 interface Target {
   id: number;
@@ -41,26 +44,51 @@ interface Profile {
   name: string;
 }
 
+interface TargetReport {
+  target: Target;
+  stats: WindowStats;
+  incidents: Incident[];
+}
+
+/** Sums per-target stats into one row for the whole scope. */
+function totalOf(rows: TargetReport[]): WindowStats {
+  const checks = rows.reduce((a, r) => a + r.stats.checks, 0);
+  const failed = rows.reduce((a, r) => a + r.stats.failed, 0);
+  const all = rows.flatMap((r) => r.incidents);
+  const downtimeMs = rows.reduce((a, r) => a + r.stats.downtimeMs, 0);
+  return {
+    checks,
+    failed,
+    availability: checks ? ((checks - failed) / checks) * 100 : null,
+    incidents: all.length,
+    downtimeMs,
+    longestMs: rows.reduce((a, r) => Math.max(a, r.stats.longestMs), 0),
+    averageMs: all.length ? downtimeMs / all.length : 0,
+  };
+}
+
 export default function ReportsTab() {
   const [profiles, setProfiles] = React.useState<Profile[]>([]);
   const [targets, setTargets] = React.useState<Target[]>([]);
+  const [history, setHistory] = React.useState<CheckResult[]>([]);
+  const [historyError, setHistoryError] = React.useState(false);
+  const [now, setNow] = React.useState(() => new Date());
 
-  // Form State
+  // Form state
   const [scope, setScope] = React.useState<'profile' | 'target'>('profile');
   const [selectedProfileId, setSelectedProfileId] = React.useState<string>('');
   const [selectedTargetId, setSelectedTargetId] = React.useState<string>('all');
-  const [fromDate, setFromDate] = React.useState('2026-07-27');
-  const [toDate, setToDate] = React.useState('2026-08-10');
-  const [reportTitle, setReportTitle] = React.useState('Monthly Infrastructure SLA & Outage Report');
-  const [authorNotes, setAuthorNotes] = React.useState('Executive summary covering service uptime compliance, critical downtime incidents, and automated recovery actions.');
+  const [fromDate, setFromDate] = React.useState(() => toDateInput(daysAgo(new Date(), 7)));
+  const [toDate, setToDate] = React.useState(() => toDateInput(new Date()));
+  const [reportTitle, setReportTitle] = React.useState('Uptime report');
+  const [authorNotes, setAuthorNotes] = React.useState('');
 
-  // Options Toggles
+  // Contents
   const [incTable, setIncTable] = React.useState(true);
-  const [incCharts, setIncCharts] = React.useState(true);
-  const [incAiPostMortem, setIncAiPostMortem] = React.useState(true);
-  const [incTimelines, setIncTimelines] = React.useState(true);
+  const [incOutages, setIncOutages] = React.useState(true);
+  const [incCheckLog, setIncCheckLog] = React.useState(false);
 
-  // Export Dialog State
+  // Export dialog
   const [exportModal, setExportModal] = React.useState<{
     open: boolean;
     format: 'md' | 'txt' | 'pdf';
@@ -73,75 +101,94 @@ export default function ReportsTab() {
       const storedProfiles = localStorage.getItem('uptime_sentry_profiles');
       const storedTargets = localStorage.getItem('uptime_sentry_targets');
       const activeId = localStorage.getItem('uptime_sentry_active_id');
-
       if (storedProfiles) {
         const pList = JSON.parse(storedProfiles) as Profile[];
         setProfiles(pList);
-        if (activeId && pList.some(p => p.id === activeId)) {
-          setSelectedProfileId(activeId);
-        } else if (pList.length > 0) {
-          setSelectedProfileId(pList[0].id);
-        }
+        if (activeId && pList.some((p) => p.id === activeId)) setSelectedProfileId(activeId);
+        else if (pList.length > 0) setSelectedProfileId(pList[0].id);
       }
-
-      if (storedTargets) {
-        setTargets(JSON.parse(storedTargets));
-      }
+      if (storedTargets) setTargets(JSON.parse(storedTargets) as Target[]);
     } catch (e) {
       console.error('Failed to load profiles/targets for reports:', e);
     }
+    fetchHistory()
+      .then((h) => { setHistory(h); setHistoryError(false); })
+      .catch(() => { setHistoryError(true); })
+      .finally(() => { setNow(new Date()); });
   }, []);
 
-  const activeProfileObj = profiles.find(p => p.id === selectedProfileId);
-  const activeTargetsList = targets.filter(t => t.profileId === selectedProfileId);
+  const activeProfileObj = profiles.find((p) => p.id === selectedProfileId);
+  const profileTargets = targets.filter((t) => t.profileId === selectedProfileId);
+  const scopedTargets = scope === 'target' && selectedTargetId !== 'all'
+    ? profileTargets.filter((t) => String(t.id) === selectedTargetId)
+    : profileTargets;
+
+  const from = fromDateInput(fromDate, 'start');
+  const to = fromDateInput(toDate, 'end');
+  const rangeValid = !!from && !!to && from <= to;
+
+  const reports: TargetReport[] = React.useMemo(() => {
+    if (!from || !to || from > to) return [];
+    return scopedTargets.map((target) => {
+      const checks = checksFor(history, target.id);
+      const all = computeIncidents(checks, now);
+      const inRange = all.filter((i) => i.start <= to && (i.end ?? now) >= from);
+      return { target, stats: windowStats(checks, all, from, to, now), incidents: inRange };
+    });
+  }, [scopedTargets, history, from, to, now]);
+
+  const total = totalOf(reports);
+  const allOutages = reports.flatMap((r) => r.incidents).sort((a, b) => b.start.getTime() - a.start.getTime());
+  const coverage = coverageStart(history.filter((h) => scopedTargets.some((t) => t.id === h.targetId)));
+  const scopeLabel = scope === 'target' && selectedTargetId !== 'all'
+    ? `Target: ${scopedTargets[0]?.name ?? 'unknown'}`
+    : `Profile: ${activeProfileObj?.name ?? 'none'}`;
+  const coverageNote = coverage
+    ? `Figures are computed from ${total.checks} recorded checks in this range. Recorded history starts ${formatDateTime(coverage)}; the monitoring service keeps the latest ${BACKEND_HISTORY_LIMIT} checks across all targets, so earlier days show no data.`
+    : 'No checks are recorded for these targets yet.';
 
   const generateMarkdownReport = () => {
     let md = `# ${reportTitle}\n\n`;
-    md += `**Generated by:** UptimeSentry Infrastructure Engine (v0.4.0)\n`;
-    md += `**Date Range:** ${fromDate} to ${toDate}\n`;
-    md += `**Scope:** ${scope === 'profile' ? `Profile: ${activeProfileObj?.name || 'All Profiles'}` : 'Specific Target'}\n\n`;
-
-    if (authorNotes.trim()) {
-      md += `## Executive Notes\n${authorNotes}\n\n`;
-    }
-
+    md += `**Scope:** ${scopeLabel}\n`;
+    md += `**Period:** ${fromDate} to ${toDate}\n`;
+    md += `**Generated:** ${formatDateTime(new Date())} by Uptime Sentry ${APP_VERSION}\n\n`;
+    if (authorNotes.trim()) md += `## Notes\n${authorNotes.trim()}\n\n`;
     if (incTable) {
-      md += `## Availability & SLA Summary Metrics\n\n`;
-      md += `| Time Period | Availability | Downtime | Incidents | Longest Incident | Avg. Duration |\n`;
-      md += `| --- | --- | --- | --- | --- | --- |\n`;
-      md += `| Today | 100.0000% | none | 0 | none | none |\n`;
-      md += `| Last 7 days | 99.5773% | 42 minutes | 1 | 42 minutes | 42 minutes |\n`;
-      md += `| Last 30 days | 99.6851% | 2 hours 15 mins | 3 | 1 hour 8 mins | 45 minutes |\n`;
-      md += `| Last 365 days | 97.1724% | 1 week 3 days | 13 | 1 week 1 day | 19 hours |\n\n`;
+      md += `## Availability\n\n`;
+      md += `| Target | Availability | Checks OK | Downtime | Outages | Longest |\n| --- | --- | --- | --- | --- | --- |\n`;
+      for (const r of reports) {
+        md += `| ${r.target.name} | ${formatPct(r.stats.availability)} | ${r.stats.checks - r.stats.failed} / ${r.stats.checks} | ${formatSpan(r.stats.downtimeMs)} | ${r.stats.incidents} | ${formatSpan(r.stats.longestMs)} |\n`;
+      }
+      if (reports.length > 1) {
+        md += `| **All targets** | **${formatPct(total.availability)}** | ${total.checks - total.failed} / ${total.checks} | ${formatSpan(total.downtimeMs)} | ${total.incidents} | ${formatSpan(total.longestMs)} |\n`;
+      }
+      md += `\n`;
     }
-
-    if (incAiPostMortem) {
-      md += `## Automated Post-Mortem Analysis\n\n`;
-      md += `### Incident #104 — Keyword Missing (Cloudflare API)\n`;
-      md += `- **Started:** Aug 5, 2026 at 10:03am CEST\n`;
-      md += `- **Resolved:** Aug 5, 2026 at 10:45am CEST (42 minutes)\n`;
-      md += `- **Root Cause:** Keyword not found (looked for "Pages","status":"operational")\n`;
-      md += `- **Post-Mortem Summary:** The monitor flagged the endpoint as down because expected keyword was missing. Endpoint returned HTTP 200. Multi-region checks confirmed missing keyword before auto-recovering.\n\n`;
+    if (incOutages) {
+      md += `## Outages\n\n`;
+      if (allOutages.length === 0) md += `No outages recorded in this period.\n\n`;
+      for (const o of allOutages) {
+        md += `### ${o.targetName} — ${formatDateTime(o.start)}\n`;
+        md += `- **Ended:** ${o.end ? formatDateTime(o.end) : 'ongoing'} (${formatSpan(o.durationMs)})\n`;
+        md += `- **Failed checks:** ${o.failedChecks.length}\n`;
+        md += `- **Last error:** ${o.failedChecks[o.failedChecks.length - 1].message || 'Check failed'}\n`;
+        if (incCheckLog) {
+          for (const c of [...o.failedChecks, ...(o.recovery ? [o.recovery] : [])]) {
+            md += `  - ${formatClock(c.timestamp)} ${c.success ? 'UP' : 'DOWN'} — ${c.message || (c.success ? 'ok' : 'failed')}\n`;
+          }
+        }
+        md += `\n`;
+      }
     }
-
-    if (incTimelines) {
-      md += `## Incident Audit Log Timeline\n\n`;
-      md += `- **Aug 5 at 10:48am CEST:** Incident resolved automatically.\n`;
-      md += `- **Aug 5 at 10:45am CEST:** Monitor recovered in Europe, North America, Australia.\n`;
-      md += `- **Aug 5 at 10:04am CEST:** Notifying team. Incident started.\n`;
-      md += `- **Aug 5 at 10:03am CEST:** Initial keyword check failure detected.\n\n`;
-    }
-
-    md += `---\n*Report generated by UptimeSentry — High-Performance Desktop Monitoring Suite*`;
+    md += `---\n*${coverageNote}*\n`;
     return md;
   };
 
   const triggerOpenExportDialog = (format: 'md' | 'txt' | 'pdf') => {
-    const ext = format === 'md' ? 'md' : format === 'txt' ? 'txt' : 'pdf';
     setExportModal({
       open: true,
       format,
-      fileName: `UptimeSentry_SLA_Report_${fromDate}_to_${toDate}.${ext}`,
+      fileName: `UptimeSentry_Report_${fromDate}_to_${toDate}.${format}`,
     });
   };
 
@@ -150,9 +197,7 @@ export default function ReportsTab() {
 
     if (exportModal.format === 'pdf') {
       setExportModal(null);
-      setTimeout(() => {
-        window.print();
-      }, 300);
+      setTimeout(() => { window.print(); }, 300);
       return;
     }
 
@@ -173,18 +218,14 @@ export default function ReportsTab() {
         const writable = await handle.createWritable();
         await writable.write(content);
         await writable.close();
-
         if (openImmediately) {
           const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
-          const url = URL.createObjectURL(blob);
-          window.open(url, '_blank');
+          window.open(URL.createObjectURL(blob), '_blank');
         }
         setExportModal(null);
         return;
       } catch (err: unknown) {
-        if ((err as { name?: string }).name === 'AbortError') {
-          return; // User cancelled file save dialog
-        }
+        if ((err as { name?: string }).name === 'AbortError') return; // user cancelled
       }
     }
 
@@ -195,377 +236,242 @@ export default function ReportsTab() {
     a.href = url;
     a.download = exportModal.fileName;
     a.click();
-
-    if (openImmediately) {
-      setTimeout(() => window.open(url, '_blank'), 100);
-    }
-
+    if (openImmediately) setTimeout(() => window.open(url, '_blank'), 100);
     setTimeout(() => { URL.revokeObjectURL(url); }, 1000);
     setExportModal(null);
   };
 
+  const downTone = (theme: import('@mui/material/styles').Theme, low: boolean) => ({
+    color: low ? signal.downInk : 'inherit',
+    ...theme.applyStyles('dark', { color: low ? signal.downOnDark : 'inherit' }),
+  });
+
   return (
-    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, userSelect: 'none' }}>
-      {/* Print CSS Rules to isolate report document for PDF export */}
+    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
+      {/* Print rules isolate the report document for PDF export */}
       <style>{`
         @media print {
-          @page {
-            margin: 12mm;
-            size: portrait;
-          }
-          body, html {
-            background: #ffffff !important;
-            color: #111827 !important;
-          }
-          .no-print, header, nav, aside, button, .MuiAppBar-root, .MuiDrawer-root, .MuiGrid-grid-md-4 {
-            display: none !important;
-          }
-          .printable-report {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            color: #111827 !important;
-            box-shadow: none !important;
-            border: none !important;
-          }
-          .printable-report * {
-            color: #111827 !important;
-            background: transparent !important;
-            border-color: #e5e7eb !important;
-          }
+          @page { margin: 12mm; size: portrait; }
+          body, html { background: #ffffff !important; color: #0B0D10 !important; }
+          .no-print, header, nav, aside, button { display: none !important; }
+          .printable-report { width: 100% !important; max-width: 100% !important; flex-basis: 100% !important; margin: 0 !important; padding: 0 !important; border: none !important; }
+          .printable-report * { color: #0B0D10 !important; background: transparent !important; border-color: #C8CBD0 !important; }
         }
       `}</style>
 
       <Grid container spacing={3}>
-        {/* Left Side: Report Options Form */}
+        {/* Report options */}
         <Grid size={{ xs: 12, md: 4 }} className="no-print">
-          <Card variant="outlined">
-            <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: 'primary.main' }}>
-                <AssessmentIcon />
-                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                  Generate SLA Report
-                </Typography>
-              </Stack>
-              <Divider />
+          <Stack spacing={2.5}>
+            <TextField label="Report title" size="small" fullWidth value={reportTitle} onChange={(e) => { setReportTitle(e.target.value); }} />
 
-              <TextField
-                label="Report Title"
-                size="small"
-                fullWidth
-                value={reportTitle}
-                onChange={(e) => { setReportTitle(e.target.value); }}
-              />
+            <TextField select label="Scope" size="small" fullWidth value={scope} onChange={(e) => { setScope(e.target.value as 'profile' | 'target'); }}>
+              <MenuItem value="profile">Entire profile</MenuItem>
+              <MenuItem value="target">Single target</MenuItem>
+            </TextField>
 
-              <TextField
-                select
-                label="Target Scope"
-                size="small"
-                fullWidth
-                value={scope}
-                onChange={(e) => { setScope(e.target.value as 'profile' | 'target'); }}
-              >
-                <MenuItem value="profile">Entire Profile</MenuItem>
-                <MenuItem value="target">Specific Target</MenuItem>
+            <TextField select label="Profile" size="small" fullWidth value={selectedProfileId} onChange={(e) => { setSelectedProfileId(e.target.value); setSelectedTargetId('all'); }}>
+              {profiles.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+            </TextField>
+
+            {scope === 'target' && (
+              <TextField select label="Target" size="small" fullWidth value={selectedTargetId} onChange={(e) => { setSelectedTargetId(e.target.value); }}>
+                <MenuItem value="all">All targets in profile</MenuItem>
+                {profileTargets.map((t) => <MenuItem key={t.id} value={String(t.id)}>{t.name}</MenuItem>)}
               </TextField>
+            )}
 
-              <TextField
-                select
-                label="Profile Selection"
-                size="small"
-                fullWidth
-                value={selectedProfileId}
-                onChange={(e) => { setSelectedProfileId(e.target.value); }}
-              >
-                {profiles.map((p) => (
-                  <MenuItem key={p.id} value={p.id}>
-                    {p.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+            <Stack direction="row" spacing={1.5}>
+              <TextField type="date" label="From" size="small" fullWidth value={fromDate} onChange={(e) => { setFromDate(e.target.value); }} slotProps={{ inputLabel: { shrink: true } }} />
+              <TextField type="date" label="To" size="small" fullWidth value={toDate} onChange={(e) => { setToDate(e.target.value); }} slotProps={{ inputLabel: { shrink: true } }} error={!rangeValid} helperText={rangeValid ? undefined : 'The end date is before the start date.'} />
+            </Stack>
 
-              {scope === 'target' && (
-                <TextField
-                  select
-                  label="Select Target"
-                  size="small"
-                  fullWidth
-                  value={selectedTargetId}
-                  onChange={(e) => { setSelectedTargetId(e.target.value); }}
-                >
-                  <MenuItem value="all">All Profile Targets</MenuItem>
-                  {activeTargetsList.map((t) => (
-                    <MenuItem key={t.id} value={t.id}>
-                      {t.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
+            <TextField
+              label="Notes for readers"
+              placeholder="Planned maintenance, known issues, actions taken…"
+              multiline
+              minRows={4}
+              maxRows={12}
+              size="small"
+              fullWidth
+              value={authorNotes}
+              onChange={(e) => { setAuthorNotes(e.target.value); }}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
 
-              <Stack direction="row" spacing={1.5}>
-                <TextField
-                  type="date"
-                  label="From Date"
-                  size="small"
-                  fullWidth
-                  value={fromDate}
-                  onChange={(e) => { setFromDate(e.target.value); }}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-                <TextField
-                  type="date"
-                  label="To Date"
-                  size="small"
-                  fullWidth
-                  value={toDate}
-                  onChange={(e) => { setToDate(e.target.value); }}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Stack>
+            <Divider />
+            <Typography variant="overline" color="text.secondary">Contents</Typography>
+            <Stack spacing={0.25} sx={{ mt: '-8px !important' }}>
+              <FormControlLabel control={<Checkbox size="small" checked={incTable} onChange={(e) => { setIncTable(e.target.checked); }} />} label="Availability table" />
+              <FormControlLabel control={<Checkbox size="small" checked={incOutages} onChange={(e) => { setIncOutages(e.target.checked); }} />} label="Outage list" />
+              <FormControlLabel control={<Checkbox size="small" checked={incCheckLog} disabled={!incOutages} onChange={(e) => { setIncCheckLog(e.target.checked); }} />} label="Check log for each outage" />
+            </Stack>
 
-              <TextField
-                label="Executive Notes / Comments"
-                multiline
-                minRows={4}
-                size="small"
-                fullWidth
-                value={authorNotes}
-                onChange={(e) => { setAuthorNotes(e.target.value); }}
-                slotProps={{ inputLabel: { shrink: true } }}
-                sx={{
-                  '& .MuiInputBase-root': { py: 1.5, px: 1.5, lineHeight: 1.5 },
-                }}
-              />
-
-              <Divider />
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                Report Contents & Visuals
-              </Typography>
-              <Stack spacing={0.5}>
-                <FormControlLabel
-                  control={<Checkbox checked={incTable} onChange={(e) => { setIncTable(e.target.checked); }} size="small" />}
-                  label="Include SLA Availability Summary Table"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={incCharts} onChange={(e) => { setIncCharts(e.target.checked); }} size="small" />}
-                  label="Include Latency Charts & Visuals"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={incAiPostMortem} onChange={(e) => { setIncAiPostMortem(e.target.checked); }} size="small" />}
-                  label="Include Post-Mortem Outage Summaries"
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={incTimelines} onChange={(e) => { setIncTimelines(e.target.checked); }} size="small" />}
-                  label="Include Incident Audit Log Timelines"
-                />
-              </Stack>
-
-              <Divider />
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                Export Options
-              </Typography>
-              <Stack spacing={1}>
-                <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => { triggerOpenExportDialog('md'); }}>
-                  Export Markdown (.md)
-                </Button>
-                <Button variant="outlined" startIcon={<DescriptionIcon />} onClick={() => { triggerOpenExportDialog('txt'); }}>
-                  Export Plain Text (.txt)
-                </Button>
-                <Button variant="outlined" color="secondary" startIcon={<PrintIcon />} onClick={() => { triggerOpenExportDialog('pdf'); }}>
-                  Export / Print PDF (.pdf)
-                </Button>
-              </Stack>
-            </CardContent>
-          </Card>
+            <Divider />
+            <Stack spacing={1}>
+              <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => { triggerOpenExportDialog('md'); }} disabled={!rangeValid}>
+                Export Markdown (.md)
+              </Button>
+              <Button variant="outlined" startIcon={<DescriptionIcon />} onClick={() => { triggerOpenExportDialog('txt'); }} disabled={!rangeValid}>
+                Export plain text (.txt)
+              </Button>
+              <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => { triggerOpenExportDialog('pdf'); }} disabled={!rangeValid}>
+                Print or save as PDF
+              </Button>
+            </Stack>
+          </Stack>
         </Grid>
 
-        {/* Right Side: Live Report Document Preview */}
+        {/* Live report preview */}
         <Grid size={{ xs: 12, md: 8 }} className="printable-report">
-          <Card variant="outlined" sx={{ bgcolor: 'background.paper', p: 3, userSelect: 'text' }}>
-            <Box sx={{ borderBottom: '2px solid', borderColor: 'primary.main', pb: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', letterSpacing: 1 }}>
-                  UPTIMESENTRY INFRASTRUCTURE REPORT
-                </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                  {reportTitle}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  Scope: {activeProfileObj?.name || 'All Targets'} • Date Range: {fromDate} to {toDate}
-                </Typography>
-              </Box>
-              <Chip label="SLA REPORT" color="primary" variant="outlined" size="small" />
+          <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 2, p: { xs: 2.5, md: 4 } }}>
+            <Box sx={{ pb: 2, mb: 3, borderBottom: '2px solid', borderColor: 'text.primary' }}>
+              <Typography component="h2" sx={{ fontSize: 30, fontWeight: 800, fontStretch: '72%', lineHeight: 1.1 }}>
+                {reportTitle || 'Untitled report'}
+              </Typography>
+              <Typography sx={{ ...mono, fontSize: 13, color: 'text.secondary', mt: 0.75 }}>
+                {scopeLabel} · {fromDate} to {toDate}
+              </Typography>
             </Box>
 
-            {authorNotes && (
-              <Box sx={{ mb: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                  Executive Notes
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                  {authorNotes}
-                </Typography>
+            {historyError && (
+              <Typography role="alert" variant="body2" sx={{ mb: 3 }}>
+                Can't reach the monitoring service at 127.0.0.1:8765, so this report has no check data.
+              </Typography>
+            )}
+
+            {authorNotes.trim() && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="overline" color="text.secondary">Notes</Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, maxWidth: '70ch' }}>{authorNotes.trim()}</Typography>
               </Box>
             )}
 
             {incTable && (
               <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  Availability & Uptime Summary Table
-                </Typography>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableHead sx={{ bgcolor: 'action.hover' }}>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Time Period</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Availability</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Downtime</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Incidents</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Longest Incident</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Avg. Incident</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell>Today</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold', color: 'success.main' }}>100.0000%</TableCell>
-                        <TableCell>none</TableCell>
-                        <TableCell>0</TableCell>
-                        <TableCell>none</TableCell>
-                        <TableCell>none</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>Last 7 days</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold', color: 'success.main' }}>99.5773%</TableCell>
-                        <TableCell>42 minutes</TableCell>
-                        <TableCell>1</TableCell>
-                        <TableCell>42 minutes</TableCell>
-                        <TableCell>42 minutes</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>Last 30 days</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold', color: 'success.main' }}>99.6851%</TableCell>
-                        <TableCell>2 hours and 15 minutes</TableCell>
-                        <TableCell>3</TableCell>
-                        <TableCell>1 hour and 8 minutes</TableCell>
-                        <TableCell>45 minutes</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <Typography variant="overline" color="text.secondary">Availability</Typography>
+                {reports.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">No targets in this scope.</Typography>
+                ) : (
+                  <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflowX: 'auto' }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          {['Target', 'Availability', 'Checks OK', 'Downtime', 'Outages', 'Longest'].map((h) => (
+                            <TableCell key={h}><Typography variant="overline" color="text.secondary">{h}</Typography></TableCell>
+                          ))}
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {reports.map((r) => (
+                          <TableRow key={r.target.id}>
+                            <TableCell sx={{ fontWeight: 600 }}>{r.target.name}</TableCell>
+                            <TableCell sx={(theme) => ({ ...mono, fontWeight: 700, ...downTone(theme, r.stats.availability !== null && r.stats.availability < 100) })}>
+                              {formatPct(r.stats.availability)}
+                            </TableCell>
+                            <TableCell sx={mono}>{r.stats.checks ? `${r.stats.checks - r.stats.failed} / ${r.stats.checks}` : '—'}</TableCell>
+                            <TableCell sx={mono}>{formatSpan(r.stats.downtimeMs)}</TableCell>
+                            <TableCell sx={mono}>{r.stats.incidents}</TableCell>
+                            <TableCell sx={mono}>{formatSpan(r.stats.longestMs)}</TableCell>
+                          </TableRow>
+                        ))}
+                        {reports.length > 1 && (
+                          <TableRow sx={{ '& td': { borderTop: '2px solid', borderTopColor: 'divider', fontWeight: 700 } }}>
+                            <TableCell>All targets</TableCell>
+                            <TableCell sx={(theme) => ({ ...mono, ...downTone(theme, total.availability !== null && total.availability < 100) })}>{formatPct(total.availability)}</TableCell>
+                            <TableCell sx={mono}>{total.checks ? `${total.checks - total.failed} / ${total.checks}` : '—'}</TableCell>
+                            <TableCell sx={mono}>{formatSpan(total.downtimeMs)}</TableCell>
+                            <TableCell sx={mono}>{total.incidents}</TableCell>
+                            <TableCell sx={mono}>{formatSpan(total.longestMs)}</TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                )}
               </Box>
             )}
 
-            {incAiPostMortem && (
+            {incOutages && (
               <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  Automated Incident Post-Mortem Summary
-                </Typography>
-                <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                  <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                      Incident #104 — Keyword Missing (Cloudflare API)
-                    </Typography>
-                    <Chip label="Resolved (42m)" size="small" color="success" />
+                <Typography variant="overline" color="text.secondary">Outages</Typography>
+                {allOutages.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">No outages recorded in this period.</Typography>
+                ) : (
+                  <Stack spacing={1.5}>
+                    {allOutages.map((o) => (
+                      <Box key={o.id} sx={{ py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
+                        <Typography sx={{ fontWeight: 700 }}>
+                          {o.targetName}
+                          <Box component="span" sx={{ ...mono, fontWeight: 400, fontSize: 13, color: 'text.secondary', ml: 1 }}>
+                            {formatDateTime(o.start)} → {o.end ? o.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : 'ongoing'} · {formatSpan(o.durationMs)}
+                          </Box>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {o.failedChecks.length} failed {o.failedChecks.length === 1 ? 'check' : 'checks'} · last error: {o.failedChecks[o.failedChecks.length - 1].message || 'Check failed'}
+                        </Typography>
+                        {incCheckLog && (
+                          <Box component="ol" sx={{ listStyle: 'none', m: 0, mt: 1, p: 0 }}>
+                            {[...o.failedChecks, ...(o.recovery ? [o.recovery] : [])].map((c) => (
+                              <Box component="li" key={c.timestamp} sx={{ ...mono, fontSize: 12.5, display: 'grid', gridTemplateColumns: '76px 52px 1fr', gap: 1 }}>
+                                <span>{formatClock(c.timestamp)}</span>
+                                <span>{c.success ? 'UP' : 'DOWN'}</span>
+                                <Box component="span" sx={{ color: 'text.secondary', overflowWrap: 'anywhere' }}>{c.message}</Box>
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                      </Box>
+                    ))}
                   </Stack>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                    Root Cause: Keyword not found (looked for "Pages","status":"operational")
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                    The monitor flagged the Cloudflare status summary as down because the expected keyword was not found in the JSON response, even though the endpoint returned HTTP 200. Multi-region checks confirmed missing keyword before auto-recovering.
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-
-            {incTimelines && (
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  Audit Lifecycle Timeline
-                </Typography>
-                <Stack spacing={1} sx={{ pl: 2, borderLeft: '2px solid', borderColor: 'primary.main' }}>
-                  <Box sx={{ py: 0.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Aug 5 at 10:48am CEST</Typography>
-                    <Typography variant="body2">Incident resolved automatically.</Typography>
-                  </Box>
-                  <Box sx={{ py: 0.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Aug 5 at 10:45am CEST</Typography>
-                    <Typography variant="body2">Monitor recovered in Europe, North America, Australia.</Typography>
-                  </Box>
-                  <Box sx={{ py: 0.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Aug 5 at 10:04am CEST</Typography>
-                    <Typography variant="body2">Incident started. Notifying team.</Typography>
-                  </Box>
-                </Stack>
+                )}
               </Box>
             )}
 
             <Divider sx={{ my: 3 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="caption" color="text.secondary">
-                Report generated via UptimeSentry Desktop SLA Suite v0.4.0
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Page 1 of 1
-              </Typography>
-            </Box>
-          </Card>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.5 }}>
+              {coverageNote}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              Generated {formatDateTime(now)} by Uptime Sentry {APP_VERSION}
+            </Typography>
+          </Box>
         </Grid>
       </Grid>
 
-      {/* Export Confirmation & Options Modal */}
+      {/* Export dialog */}
       {exportModal && (
-        <Dialog
-          open={exportModal.open}
-          onClose={() => { setExportModal(null); }}
-          maxWidth="xs"
-          fullWidth
-          slotProps={{
-            paper: {
-              sx: {
-                bgcolor: 'background.paper',
-                color: 'text.primary',
-                backgroundImage: 'none',
-                border: '1px solid',
-                borderColor: 'divider',
-              }
-            }
-          }}
-        >
-          <DialogTitle sx={{ fontWeight: 'bold' }}>
-            Save SLA Report ({exportModal.format.toUpperCase()})
+        <Dialog open={exportModal.open} onClose={() => { setExportModal(null); }} maxWidth="xs" fullWidth>
+          <DialogTitle sx={{ fontWeight: 700 }}>
+            {exportModal.format === 'pdf' ? 'Print or save as PDF' : `Save report (.${exportModal.format})`}
           </DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField
-              label="File Name"
-              size="small"
-              fullWidth
-              value={exportModal.fileName}
-              onChange={(e) => { setExportModal({ ...exportModal, fileName: e.target.value }); }}
-              sx={{
-                mt: 1,
-                '& .MuiInputBase-root': { bgcolor: 'action.hover' }
-              }}
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={openImmediately}
-                  onChange={(e) => { setOpenImmediately(e.target.checked); }}
-                  color="primary"
+            {exportModal.format !== 'pdf' && (
+              <>
+                <TextField
+                  label="File name"
+                  size="small"
+                  fullWidth
+                  value={exportModal.fileName}
+                  onChange={(e) => { setExportModal({ ...exportModal, fileName: e.target.value }); }}
+                  sx={{ mt: 1 }}
                 />
-              }
-              label="Open file immediately after saving"
-            />
+                <FormControlLabel
+                  control={<Checkbox checked={openImmediately} onChange={(e) => { setOpenImmediately(e.target.checked); }} />}
+                  label="Open the file after saving"
+                />
+              </>
+            )}
+            {exportModal.format === 'pdf' && (
+              <Typography variant="body2" color="text.secondary">
+                Opens the print dialog with just the report. Choose “Save as PDF” as the printer to create a file.
+              </Typography>
+            )}
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
-            <Button variant="outlined" onClick={() => { setExportModal(null); }}>
-              Cancel
-            </Button>
-            <Button variant="contained" startIcon={<DownloadIcon />} onClick={handleConfirmSaveExport}>
-              Save & Export
+            <Button variant="outlined" onClick={() => { setExportModal(null); }}>Cancel</Button>
+            <Button variant="contained" startIcon={exportModal.format === 'pdf' ? <PrintIcon /> : <DownloadIcon />} onClick={() => { void handleConfirmSaveExport(); }}>
+              {exportModal.format === 'pdf' ? 'Open print dialog' : 'Save'}
             </Button>
           </DialogActions>
         </Dialog>
