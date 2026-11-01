@@ -31,10 +31,15 @@ fn find_jar() -> Option<PathBuf> {
         }
     }
 
-    // 2. Development: two levels up from desktop/ → UptimeSentry/Uptime-Sentry/target/
-    let dev_candidate = PathBuf::from("../../Uptime-Sentry/target/uptimesentry.jar");
-    if dev_candidate.exists() {
-        return Some(dev_candidate);
+    // 2. Development: `cargo run` executes in desktop/src-tauri, so the repo's target/ is two levels up.
+    //    The second path keeps the previous layout (repo checked out one level deeper) working.
+    for dev_candidate in [
+        PathBuf::from("../../target/uptimesentry.jar"),
+        PathBuf::from("../../Uptime-Sentry/target/uptimesentry.jar"),
+    ] {
+        if dev_candidate.exists() {
+            return Some(dev_candidate);
+        }
     }
 
     None

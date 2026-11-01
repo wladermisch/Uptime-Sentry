@@ -1,13 +1,9 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Grid from '@mui/material/Grid';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
-import Divider from '@mui/material/Divider';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
@@ -15,656 +11,441 @@ import TextField from '@mui/material/TextField';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import Accordion from '@mui/material/Accordion';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import SendIcon from '@mui/icons-material/Send';
-import PauseIcon from '@mui/icons-material/Pause';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import SettingsIcon from '@mui/icons-material/Settings';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import CommentIcon from '@mui/icons-material/Comment';
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
+import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
+import { fonts, signal } from '../../shared-theme/themePrimitives';
+import { CheckResult, Target, deriveRow, formatClock, formatDuration } from '../home/boardModel';
+import {
+  API, Incident, WindowStats, checksFor, computeIncidents, coverageStart, daysAgo, fetchHistory,
+  formatDateTime, formatPct, formatSpan, fromDateInput, startOfDay, toDateInput, windowStats, BACKEND_HISTORY_LIMIT,
+} from '../historyStats';
 
-interface Target {
-  id: number;
-  profileId: string;
-  name: string;
-  type: string;
-  host: string;
-  timeout: number;
-  recoveryAction: string;
-  acceptableStatusCodes: number[];
-  consecutiveFailuresLimit: number;
-  profileName: string;
+const mono = { fontFamily: fonts.mono, fontVariantNumeric: 'tabular-nums' } as const;
+const NOTES_KEY = 'uptime_sentry_incident_notes';
+
+type Notes = Record<string, { time: string; text: string }[]>;
+
+function loadNotes(): Notes {
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}') as Notes; } catch { return {}; }
 }
 
-interface Incident {
-  id: string;
-  targetId: number;
-  targetName: string;
-  status: 'Resolved' | 'Active';
-  startedAt: string;
-  resolvedAt: string;
-  duration: string;
-  cause: string;
-  responseCode: number;
-  requestDuration: string;
-  checkedUrl: string;
-  keywordRequired?: string;
-  aiPostMortem: string;
-  resolvedIps: string[];
-  timeline: { time: string; text: string; location?: string }[];
-  comments: { author: string; time: string; text: string }[];
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', lineHeight: 1.6 }}>
+      {children}
+    </Typography>
+  );
+}
+
+function Fact({ label, value, tone }: { label: string; value: React.ReactNode; tone?: 'down' }) {
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      <Label>{label}</Label>
+      <Box
+        sx={(theme) => ({
+          ...mono,
+          fontSize: 18,
+          fontWeight: 600,
+          mt: 0.25,
+          color: tone === 'down' ? signal.downInk : (theme.vars || theme).palette.text.primary,
+          ...theme.applyStyles('dark', { color: tone === 'down' ? signal.downOnDark : (theme.vars || theme).palette.text.primary }),
+        })}
+      >
+        {value}
+      </Box>
+    </Box>
+  );
+}
+
+function StatsRow({ label, stats }: { label: React.ReactNode; stats: WindowStats }) {
+  const low = stats.availability !== null && stats.availability < 100;
+  return (
+    <TableRow>
+      <TableCell sx={{ fontWeight: 600 }}>{label}</TableCell>
+      <TableCell sx={(theme) => ({ ...mono, fontWeight: 700, color: low ? signal.downInk : 'inherit', ...theme.applyStyles('dark', { color: low ? signal.downOnDark : 'inherit' }) })}>
+        {formatPct(stats.availability)}
+      </TableCell>
+      <TableCell sx={mono}>{stats.checks === 0 ? '—' : `${stats.checks - stats.failed} / ${stats.checks}`}</TableCell>
+      <TableCell sx={mono}>{formatSpan(stats.downtimeMs)}</TableCell>
+      <TableCell sx={mono}>{stats.incidents}</TableCell>
+      <TableCell sx={mono}>{formatSpan(stats.longestMs)}</TableCell>
+      <TableCell sx={mono}>{formatSpan(stats.averageMs)}</TableCell>
+    </TableRow>
+  );
 }
 
 export default function AnalyticsTab() {
   const [targets, setTargets] = React.useState<Target[]>([]);
-  const [selectedTarget, setSelectedTarget] = React.useState<Target | null>(null);
+  const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [isPaused, setIsPaused] = React.useState(false);
-  const [testAlertSent, setTestAlertSent] = React.useState(false);
+  const [history, setHistory] = React.useState<CheckResult[]>([]);
+  const [historyError, setHistoryError] = React.useState(false);
+  const [autoCheck, setAutoCheck] = React.useState<{ running: boolean; intervalSeconds: number } | null>(null);
+  const [now, setNow] = React.useState(() => new Date());
+  const [fromDate, setFromDate] = React.useState(() => toDateInput(daysAgo(new Date(), 7)));
+  const [toDate, setToDate] = React.useState(() => toDateInput(new Date()));
+  const [openIncident, setOpenIncident] = React.useState<Incident | null>(null);
+  const [notes, setNotes] = React.useState<Notes>(loadNotes);
+  const [noteInput, setNoteInput] = React.useState('');
+  const [alertPlayed, setAlertPlayed] = React.useState(false);
+  const targetsRef = React.useRef<Target[]>([]);
 
-  // Filter Date Range
-  const [fromDate, setFromDate] = React.useState('2026-07-27');
-  const [toDate, setToDate] = React.useState('2026-08-10');
-
-  // Selected Incident Dialog State
-  const [selectedIncident, setSelectedIncident] = React.useState<Incident | null>(null);
-  const [commentInput, setCommentInput] = React.useState('');
-  const [incidentsList, setIncidentsList] = React.useState<Incident[]>([]);
-
-  // Load Targets & Initial Data
-  const loadData = React.useCallback(() => {
+  const loadTargets = React.useCallback(() => {
     try {
-      const stored = localStorage.getItem('uptime_sentry_targets');
-      if (stored) {
-        const list = JSON.parse(stored) as Target[];
-        setTargets(list);
-
-        const activeId = localStorage.getItem('uptime_sentry_active_id');
-        const currentProfileTargets = list.filter((t) => t.profileId === activeId);
-
-        if (currentProfileTargets.length > 0 && !selectedTarget) {
-          setSelectedTarget(currentProfileTargets[0]);
-        } else if (list.length > 0 && !selectedTarget) {
-          setSelectedTarget(list[0]);
-        }
-      }
+      const list = JSON.parse(localStorage.getItem('uptime_sentry_targets') || '[]') as Target[];
+      const activeId = localStorage.getItem('uptime_sentry_active_id');
+      setTargets(list);
+      targetsRef.current = list;
+      setSelectedId((cur) => {
+        if (cur !== null && list.some((t) => t.id === cur)) return cur;
+        return (list.find((t) => t.profileId === activeId) ?? list[0])?.id ?? null;
+      });
     } catch (e) {
       console.error('Failed to load targets for analytics:', e);
     }
-  }, [selectedTarget]);
+  }, []);
 
-  React.useEffect(() => {
-    loadData();
-
-    const handleSelectIncident = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail && detail.targetId) {
-        const foundTarget = targets.find((t) => t.id === detail.targetId);
-        if (foundTarget) {
-          setSelectedTarget(foundTarget);
-        }
-      }
-    };
-
-    window.addEventListener('select-analytics-incident', handleSelectIncident);
-    return () => { window.removeEventListener('select-analytics-incident', handleSelectIncident); };
-  }, [loadData, targets]);
-
-  // Generate Incidents for selected target
-  React.useEffect(() => {
-    if (!selectedTarget) return;
-
-    const mockIncidents: Incident[] = [
-      {
-        id: `inc-${selectedTarget.id}-1`,
-        targetId: selectedTarget.id,
-        targetName: selectedTarget.name,
-        status: 'Resolved',
-        startedAt: 'Aug 5, 2026 at 10:03am CEST',
-        resolvedAt: 'Aug 5, 2026 at 10:45am CEST',
-        duration: '42 minutes',
-        cause: selectedTarget.type === 'HTTP' ? 'Keyword not found (looked for "Pages","status":"operational")' : 'ICMP Echo Timeout',
-        responseCode: 200,
-        requestDuration: '0.3428s',
-        checkedUrl: selectedTarget.type === 'HTTP' ? selectedTarget.host : `PING ${selectedTarget.host}`,
-        keywordRequired: '"Pages","status":"operational"',
-        aiPostMortem: `The monitor flagged ${selectedTarget.name} as down because the expected keyword ("Pages","status":"operational") was not found in the response, even though the endpoint returned HTTP 200. Checks from multiple regions saw the keyword-missing error. The monitor later recovered in all regions and the incident was resolved automatically after a short wait.`,
-        resolvedIps: ['18.67.110.39', '13.35.107.71', '52.222.136.125'],
-        timeline: [
-          { time: 'Aug 5 at 10:48am CEST', text: 'Incident resolved automatically.' },
-          { time: 'Aug 5 at 10:45am CEST', text: 'Waiting for 3 minutes before auto-resolving the incident, and postponing all escalations.' },
-          { time: 'Aug 5 at 10:45am CEST', text: 'Monitor recovered.', location: 'Australia' },
-          { time: 'Aug 5 at 10:45am CEST', text: 'Monitor recovered.', location: 'Europe' },
-          { time: 'Aug 5 at 10:45am CEST', text: 'Monitor recovered.', location: 'North America' },
-          { time: 'Aug 5 at 10:04am CEST', text: 'Notifying the entire team.' },
-          { time: 'Aug 5 at 10:04am CEST', text: 'Incident started.' },
-          { time: 'Aug 5 at 10:03am CEST', text: `Received keyword not found error at ${selectedTarget.host} from 162.55.165.86`, location: 'Europe' },
-          { time: 'Aug 5 at 10:03am CEST', text: `Received keyword not found error at ${selectedTarget.host} from 5.161.118.194`, location: 'North America' },
-          { time: 'Aug 5 at 10:03am CEST', text: `Received keyword not found error at ${selectedTarget.host} from 194.195.248.157`, location: 'Australia' },
-        ],
-        comments: [
-          { author: 'Wlad Ermisch', time: 'Aug 5 at 11:15am CEST', text: 'Verified endpoint response structure. Upstream API deploy temporarily altered JSON keys.' }
-        ]
-      },
-      {
-        id: `inc-${selectedTarget.id}-2`,
-        targetId: selectedTarget.id,
-        targetName: selectedTarget.name,
-        status: 'Resolved',
-        startedAt: 'Jul 30, 2026 at 02:14pm CEST',
-        resolvedAt: 'Jul 30, 2026 at 03:22pm CEST',
-        duration: '1 hour and 8 minutes',
-        cause: 'HTTP 500 Server Error',
-        responseCode: 500,
-        requestDuration: '5.001s',
-        checkedUrl: selectedTarget.host,
-        aiPostMortem: `Target ${selectedTarget.name} returned HTTP 500 Internal Server Error due to high server CPU utilization during automated database backup. Auto-recovery script restarted Apache service.`,
-        resolvedIps: ['104.21.55.12'],
-        timeline: [
-          { time: 'Jul 30 at 03:22pm CEST', text: 'Incident resolved.' },
-          { time: 'Jul 30 at 02:16pm CEST', text: 'Executed recovery command: restart-service.bat' },
-          { time: 'Jul 30 at 02:14pm CEST', text: 'HTTP 500 Internal Server Error detected.' }
-        ],
-        comments: []
-      }
-    ];
-
-    setIncidentsList(mockIncidents);
-  }, [selectedTarget]);
-
-  const handleSendTestAlert = () => {
-    setTestAlertSent(true);
+  const loadHistory = React.useCallback(async () => {
     try {
-      const audio = new Audio('http://127.0.0.1:8765/api/audio/stream?type=down&file=Down-Default.wav');
-      audio.volume = 0.8;
-      audio.play().catch(() => {});
-    } catch {}
-    setTimeout(() => { setTestAlertSent(false); }, 3000);
-  };
+      const [h, a] = await Promise.all([fetchHistory(), fetch(`${API}/api/autocheck/status`).then((r) => (r.ok ? r.json() : null))]);
+      setHistory(h);
+      setAutoCheck(a as { running: boolean; intervalSeconds: number } | null);
+      setHistoryError(false);
+    } catch {
+      setHistoryError(true);
+    }
+    setNow(new Date());
+  }, []);
 
-  const handleNavigateToConfigure = () => {
-    if (!selectedTarget) return;
-    window.dispatchEvent(new CustomEvent('nav-tab', { detail: 'targets' }));
-  };
-
-  const handleAddComment = () => {
-    if (!commentInput.trim() || !selectedIncident) return;
-    const newComment = {
-      author: 'User',
-      time: 'Just now',
-      text: commentInput.trim(),
+  React.useEffect(() => {
+    loadTargets();
+    void loadHistory();
+    const poll = setInterval(() => { void loadHistory(); }, 10000);
+    const onSelect = (e: Event) => {
+      const id = (e as CustomEvent<{ targetId?: number }>).detail?.targetId;
+      if (id !== undefined && targetsRef.current.some((t) => t.id === id)) setSelectedId(id);
     };
-    setSelectedIncident({
-      ...selectedIncident,
-      comments: [...selectedIncident.comments, newComment],
-    });
-    setCommentInput('');
-  };
+    const onProfiles = () => { loadTargets(); };
+    window.addEventListener('select-analytics-incident', onSelect);
+    window.addEventListener('profiles-updated', onProfiles);
+    window.addEventListener('profile-changed', onProfiles);
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener('select-analytics-incident', onSelect);
+      window.removeEventListener('profiles-updated', onProfiles);
+      window.removeEventListener('profile-changed', onProfiles);
+    };
+  }, [loadTargets, loadHistory]);
+
+  const selected = targets.find((t) => t.id === selectedId) ?? null;
+  const checks = React.useMemo(() => (selected ? checksFor(history, selected.id) : []), [history, selected]);
+  const incidents = React.useMemo(() => computeIncidents(checks, now), [checks, now]);
+  const row = selected ? deriveRow(selected, history, {}) : null;
+  const coverage = coverageStart(checks);
+
+  const rangeFrom = fromDateInput(fromDate, 'start');
+  const rangeTo = fromDateInput(toDate, 'end');
+  const windows: { label: React.ReactNode; stats: WindowStats }[] = [
+    { label: 'Today', stats: windowStats(checks, incidents, startOfDay(now), now, now) },
+    { label: 'Last 7 days', stats: windowStats(checks, incidents, daysAgo(now, 7), now, now) },
+    { label: 'Last 30 days', stats: windowStats(checks, incidents, daysAgo(now, 30), now, now) },
+  ];
+  if (rangeFrom && rangeTo && rangeFrom <= rangeTo) {
+    windows.push({ label: `${fromDate} – ${toDate}`, stats: windowStats(checks, incidents, rangeFrom, rangeTo, now) });
+  }
 
   const filteredTargets = targets.filter((t) =>
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.host.toLowerCase().includes(searchQuery.toLowerCase())
+    t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.host.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
+  const playAlertSound = () => {
+    try {
+      const audio = new Audio(`${API}/api/audio/stream?type=down&file=Down-Default.wav`);
+      audio.volume = 0.8;
+      void audio.play().then(() => { setAlertPlayed(true); setTimeout(() => { setAlertPlayed(false); }, 2500); });
+    } catch {
+      // Audio unavailable: nothing to confirm.
+    }
+  };
+
+  const addNote = () => {
+    if (!openIncident || !noteInput.trim()) return;
+    const next: Notes = {
+      ...notes,
+      [openIncident.id]: [...(notes[openIncident.id] ?? []), { time: new Date().toISOString(), text: noteInput.trim() }],
+    };
+    setNotes(next);
+    try { localStorage.setItem(NOTES_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+    setNoteInput('');
+  };
+
+  const stateLabel = !row || row.state === 'pending' ? 'No checks yet' : row.state === 'down' ? 'Down' : 'Up';
+
   return (
-    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, userSelect: 'none' }}>
+    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
       <Grid container spacing={3}>
-        {/* Left Side: Subsidebar Target Switcher */}
+        {/* Target list */}
         <Grid size={{ xs: 12, md: 3.2 }}>
-          <Box sx={{ borderRight: '1px solid', borderColor: 'divider', height: '100%', pr: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'text.secondary', mb: 1 }}>
-                Analytics Monitors
-              </Typography>
-              <TextField
-                placeholder="Search target..."
-                size="small"
-                fullWidth
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); }}
-              />
-            </Box>
-            {/* List Wrapper to prevent item expansion */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', flexGrow: 1, overflowY: 'auto' }}>
-              <List dense sx={{ p: 0, width: '100%' }}>
-                {filteredTargets.map((t) => (
+          <Box sx={{ borderRight: { md: '1px solid' }, borderColor: { md: 'divider' }, height: '100%', pr: { md: 2 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <TextField
+              placeholder="Search targets"
+              size="small"
+              fullWidth
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); }}
+              slotProps={{ htmlInput: { 'aria-label': 'Search targets' } }}
+            />
+            <List dense sx={{ p: 0 }}>
+              {filteredTargets.map((t) => {
+                const r = deriveRow(t, history, {});
+                return (
                   <ListItemButton
                     key={t.id}
-                    selected={selectedTarget?.id === t.id}
-                    onClick={() => { setSelectedTarget(t); }}
-                    sx={{
-                      width: '100%',
-                      flexGrow: 0,
-                      flexShrink: 0,
-                      alignSelf: 'flex-start',
-                      borderRadius: 1,
-                      mb: 0.5,
-                      py: 0.4,
-                      px: 1.5,
-                      minHeight: 36,
-                      '&.Mui-selected': {
-                        bgcolor: 'action.selected',
-                        fontWeight: 'bold',
-                      }
-                    }}
+                    selected={selectedId === t.id}
+                    onClick={() => { setSelectedId(t.id); }}
+                    sx={{ borderRadius: 1, mb: 0.5, py: 0.5, px: 1.5, gap: 1.25 }}
                   >
+                    <Box
+                      aria-hidden="true"
+                      sx={{
+                        width: 8, height: 8, borderRadius: '2px', flexShrink: 0,
+                        backgroundColor: r.state === 'down' ? signal.down : r.state === 'up' ? 'text.primary' : 'divider',
+                      }}
+                    />
                     <ListItemText
-                      primary={
-                        <Typography variant="body2" sx={{ fontWeight: selectedTarget?.id === t.id ? 'bold' : 'medium', fontSize: '0.84rem', lineHeight: 1.2 }}>
-                          {t.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Typography variant="caption" sx={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', display: 'block', fontSize: '0.72rem', lineHeight: 1.1 }}>
-                          {t.type} • {t.host}
-                        </Typography>
-                      }
+                      primary={t.name}
+                      secondary={`${t.type} · ${t.host}`}
+                      slotProps={{
+                        primary: { sx: { fontWeight: selectedId === t.id ? 700 : 500, fontSize: 14 } },
+                        secondary: { sx: { ...mono, fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                      }}
                     />
                   </ListItemButton>
-                ))}
-              </List>
-            </Box>
+                );
+              })}
+              {filteredTargets.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 1 }}>
+                  {targets.length === 0 ? 'No targets yet.' : 'No target matches your search.'}
+                </Typography>
+              )}
+            </List>
           </Box>
         </Grid>
 
-        {/* Right Side: Analytics & Incident Panel */}
+        {/* Selected target */}
         <Grid size={{ xs: 12, md: 8.8 }}>
-          {selectedTarget ? (
+          {!selected ? (
+            <Box sx={{ p: 4 }}>
+              <Typography color="text.secondary">Select a target to see its availability and outages.</Typography>
+            </Box>
+          ) : (
             <Stack spacing={3}>
-              {/* Target Header Card */}
-              <Card variant="outlined">
-                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-                    <Box>
-                      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 0.5 }}>
-                        <Typography variant="h5" sx={{ fontWeight: 'bold', userSelect: 'text' }}>
-                          {selectedTarget.name}
-                        </Typography>
-                        <Chip
-                          label={isPaused ? 'PAUSED' : 'UP'}
-                          color={isPaused ? 'warning' : 'success'}
-                          size="small"
-                          sx={{ fontWeight: 'bold' }}
-                        />
-                        <Typography variant="caption" color="text.secondary">
-                          • Checked every 3 minutes
-                        </Typography>
-                      </Stack>
-                      <Typography variant="caption" color="text.secondary" sx={{ userSelect: 'text', fontFamily: 'monospace' }}>
-                        {selectedTarget.host}
-                      </Typography>
-                    </Box>
+              {historyError && (
+                <Box role="alert" sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, fontSize: 14 }}>
+                  Can't reach the monitoring service at 127.0.0.1:8765. Figures below may be out of date.
+                </Box>
+              )}
 
-                    {/* Quick Action Buttons */}
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<SendIcon />}
-                        onClick={handleSendTestAlert}
-                      >
-                        {testAlertSent ? 'Alert Sent!' : 'Send test alert'}
-                      </Button>
-                      <Button
-                        size="small"
-                        variant={isPaused ? 'contained' : 'outlined'}
-                        color={isPaused ? 'success' : 'warning'}
-                        startIcon={isPaused ? <PlayArrowIcon /> : <PauseIcon />}
-                        onClick={() => { setIsPaused(!isPaused); }}
-                      >
-                        {isPaused ? 'Resume' : 'Pause'}
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<SettingsIcon />}
-                        onClick={handleNavigateToConfigure}
-                      >
-                        Configure
-                      </Button>
-                    </Stack>
-                  </Stack>
-
-                  <Divider />
-
-                  {/* Summary Metric Cards */}
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          Currently up for
-                        </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                          5 days 11 hours 14 mins
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          Last checked at
-                        </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                          2 minutes ago
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          Total Incidents Recorded
-                        </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'error.main' }}>
-                          {incidentsList.length + 11}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-
-              {/* Time Period Breakdown Table */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                      Historical Response & Availability Breakdown
+              {/* Header */}
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+                <Box sx={{ mr: 'auto', minWidth: 0 }}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                    <Typography component="h2" sx={{ fontSize: 28, fontWeight: 800, fontStretch: '72%', lineHeight: 1.1 }}>
+                      {selected.name}
                     </Typography>
-                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                      <TextField
-                        type="date"
-                        label="From"
-                        size="small"
-                        value={fromDate}
-                        onChange={(e) => { setFromDate(e.target.value); }}
-                        slotProps={{ inputLabel: { shrink: true } }}
-                      />
-                      <TextField
-                        type="date"
-                        label="To"
-                        size="small"
-                        value={toDate}
-                        onChange={(e) => { setToDate(e.target.value); }}
-                        slotProps={{ inputLabel: { shrink: true } }}
-                      />
-                      <Button variant="contained" size="small">
-                        Calculate
-                      </Button>
-                    </Stack>
+                    <Box
+                      component="span"
+                      sx={{
+                        ...mono, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', px: 1, lineHeight: '22px', borderRadius: '3px',
+                        backgroundColor: row?.state === 'down' ? signal.down : 'transparent',
+                        color: row?.state === 'down' ? '#FFFFFF' : 'text.secondary',
+                        border: row?.state === 'down' ? 'none' : '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      {stateLabel.toUpperCase()}
+                    </Box>
                   </Stack>
-
-                  <TableContainer component={Paper} variant="outlined">
-                    <Table size="small">
-                      <TableHead sx={{ bgcolor: 'action.hover' }}>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'bold' }}>Time Period</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold' }}>Availability</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold' }}>Downtime</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold' }}>Incidents</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold' }}>Longest Incident</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold' }}>Avg. Incident</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'medium' }}>Today</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold', color: 'success.main' }}>100.0000%</TableCell>
-                          <TableCell>none</TableCell>
-                          <TableCell>0</TableCell>
-                          <TableCell>none</TableCell>
-                          <TableCell>none</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'medium' }}>Last 7 days</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold', color: 'success.main' }}>99.5773%</TableCell>
-                          <TableCell>42 minutes</TableCell>
-                          <TableCell>1</TableCell>
-                          <TableCell>42 minutes</TableCell>
-                          <TableCell>42 minutes</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'medium' }}>Last 30 days</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold', color: 'success.main' }}>99.6851%</TableCell>
-                          <TableCell>2 hours and 15 minutes</TableCell>
-                          <TableCell>3</TableCell>
-                          <TableCell>1 hour and 8 minutes</TableCell>
-                          <TableCell>45 minutes</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'medium' }}>Last 365 days</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold', color: 'warning.main' }}>97.1724%</TableCell>
-                          <TableCell>1 week and 3 days</TableCell>
-                          <TableCell>13</TableCell>
-                          <TableCell>1 week and 1 day</TableCell>
-                          <TableCell>19 hours and 2 minutes</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'medium' }}>All time (Last 106 days)</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold', color: 'warning.main' }}>90.1829%</TableCell>
-                          <TableCell>1 week and 3 days</TableCell>
-                          <TableCell>13</TableCell>
-                          <TableCell>1 week and 1 day</TableCell>
-                          <TableCell>19 hours and 2 minutes</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </CardContent>
-              </Card>
-
-              {/* Clickable Incidents List */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2 }}>
-                    Downtime Incidents Archive (Click to inspect post-mortem)
+                  <Typography sx={{ ...mono, fontSize: 13, color: 'text.secondary', mt: 0.5, overflowWrap: 'anywhere' }}>
+                    {selected.type} · {selected.host}
+                    {autoCheck ? ` · ${autoCheck.running ? `auto-check every ${autoCheck.intervalSeconds} s` : 'auto-check paused'}` : ''}
                   </Typography>
-                  <List dense sx={{ p: 0 }}>
-                    {incidentsList.map((inc) => (
+                </Box>
+                <Stack direction="row" spacing={1}>
+                  <Button size="small" variant="outlined" startIcon={<VolumeUpRoundedIcon />} onClick={playAlertSound}>
+                    {alertPlayed ? 'Played' : 'Test alert sound'}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<SettingsRoundedIcon />}
+                    onClick={() => { window.dispatchEvent(new CustomEvent('nav-tab', { detail: 'targets' })); }}
+                  >
+                    Configure
+                  </Button>
+                </Stack>
+              </Box>
+
+              {/* Facts */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)' }, gap: 2, py: 2, borderTop: '1px solid', borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Fact
+                  label={row?.state === 'down' ? 'Down for' : 'Up for'}
+                  tone={row?.state === 'down' ? 'down' : undefined}
+                  value={row?.since ? formatDuration(row.since, now) : '—'}
+                />
+                <Fact label="Last checked" value={row?.lastChecked ? formatClock(row.lastChecked) : '—'} />
+                <Fact label="Outages recorded" value={incidents.length} />
+              </Box>
+
+              {/* Availability */}
+              <Box>
+                <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-end', mb: 1.5, flexWrap: 'wrap', gap: 2 }}>
+                  <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700 }}>Availability</Typography>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                    <TextField type="date" label="From" size="small" value={fromDate} onChange={(e) => { setFromDate(e.target.value); }} slotProps={{ inputLabel: { shrink: true } }} />
+                    <TextField type="date" label="To" size="small" value={toDate} onChange={(e) => { setToDate(e.target.value); }} slotProps={{ inputLabel: { shrink: true } }} />
+                  </Stack>
+                </Stack>
+                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflowX: 'auto' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        {['Period', 'Availability', 'Checks OK', 'Downtime', 'Outages', 'Longest', 'Average'].map((h) => (
+                          <TableCell key={h}><Typography variant="overline" color="text.secondary">{h}</Typography></TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {windows.map((w, i) => <StatsRow key={i} label={w.label} stats={w.stats} />)}
+                    </TableBody>
+                  </Table>
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  {coverage
+                    ? `Based on ${checks.length} recorded checks since ${formatDateTime(coverage)}. Periods before that show no data. The monitoring service keeps the latest ${BACKEND_HISTORY_LIMIT} checks across all targets.`
+                    : 'No checks recorded for this target yet.'}
+                </Typography>
+              </Box>
+
+              {/* Outages */}
+              <Box>
+                <Typography component="h3" sx={{ fontSize: 16, fontWeight: 700, mb: 1.5 }}>Outages</Typography>
+                {incidents.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No outages in the recorded checks{coverage ? ` (since ${formatDateTime(coverage)})` : ''}.
+                  </Typography>
+                ) : (
+                  <List dense sx={{ p: 0, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                    {incidents.map((inc, i) => (
                       <ListItemButton
                         key={inc.id}
-                        onClick={() => { setSelectedIncident(inc); }}
-                        sx={{
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                          mb: 1,
-                          p: 1.5,
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          '&:hover': { bgcolor: 'action.hover' }
-                        }}
+                        onClick={() => { setOpenIncident(inc); setNoteInput(''); }}
+                        divider={i < incidents.length - 1}
+                        sx={{ py: 1.25, px: 2, gap: 2 }}
                       >
-                        <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-                          <CheckCircleIcon color="success" />
-                          <Box>
-                            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                              <Typography variant="body2" sx={{ fontWeight: 'bold', userSelect: 'text' }}>
-                                {inc.status} • {inc.startedAt}
-                              </Typography>
-                              <Chip label={inc.duration} size="small" variant="outlined" />
-                            </Stack>
-                            <Typography variant="caption" color="text.secondary" sx={{ userSelect: 'text', display: 'block', mt: 0.5 }}>
-                              Cause: {inc.cause}
-                            </Typography>
-                          </Box>
-                        </Stack>
-                        <Typography variant="caption" color="primary.main" sx={{ fontWeight: 'bold' }}>
-                          View Details & AI Analysis →
-                        </Typography>
+                        <Box
+                          sx={{
+                            ...mono, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', px: 0.75, lineHeight: '20px', borderRadius: '3px', flexShrink: 0,
+                            backgroundColor: inc.end ? 'transparent' : signal.down,
+                            color: inc.end ? 'text.secondary' : '#FFFFFF',
+                            border: inc.end ? '1px solid' : 'none',
+                            borderColor: 'divider',
+                          }}
+                        >
+                          {inc.end ? 'RESOLVED' : 'ONGOING'}
+                        </Box>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ ...mono, fontSize: 13, fontWeight: 600 }}>
+                            {formatDateTime(inc.start)} · {formatSpan(inc.durationMs)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {inc.failedChecks[inc.failedChecks.length - 1].message || 'Check failed'} · {inc.failedChecks.length} failed {inc.failedChecks.length === 1 ? 'check' : 'checks'}
+                            {notes[inc.id]?.length ? ` · ${notes[inc.id].length} ${notes[inc.id].length === 1 ? 'note' : 'notes'}` : ''}
+                          </Typography>
+                        </Box>
+                        <ChevronRightRoundedIcon sx={{ color: 'text.secondary' }} />
                       </ListItemButton>
                     ))}
                   </List>
-                </CardContent>
-              </Card>
+                )}
+              </Box>
             </Stack>
-          ) : (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary">Select a target from the list to view detailed analytics.</Typography>
-            </Box>
           )}
         </Grid>
       </Grid>
 
-      {/* Deep Incident Information Dialog */}
-      {selectedIncident && (
-        <Dialog
-          open={Boolean(selectedIncident)}
-          onClose={() => { setSelectedIncident(null); }}
-          maxWidth="md"
-          fullWidth
-          slotProps={{ paper: { sx: { borderRadius: 2 } } }}
-        >
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-            <Box>
-              <Typography variant="overline" color="text.secondary">Incident Detail View</Typography>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', userSelect: 'text' }}>
-                {selectedIncident.targetName} — {selectedIncident.status} ({selectedIncident.startedAt})
-              </Typography>
-            </Box>
-            <Chip label="Auto-resolved" color="success" size="small" />
+      {/* Outage detail */}
+      {openIncident && selected && (
+        <Dialog open onClose={() => { setOpenIncident(null); }} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ pb: 1 }}>
+            <Typography component="span" sx={{ display: 'block', fontSize: 20, fontWeight: 800 }}>
+              {selected.name} outage
+            </Typography>
+            <Typography component="span" sx={{ ...mono, display: 'block', fontSize: 13, color: 'text.secondary' }}>
+              {formatDateTime(openIncident.start)} → {openIncident.end ? formatDateTime(openIncident.end) : 'ongoing'} · {formatSpan(openIncident.durationMs)}
+            </Typography>
           </DialogTitle>
-          <Divider />
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 2 }}>
-            {/* Cause Box */}
-            <Box sx={{ p: 2, bgcolor: 'rgba(244, 67, 54, 0.08)', border: '1px solid', borderColor: 'error.light', borderRadius: 1 }}>
-              <Typography variant="caption" color="error.dark" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                ROOT CAUSE
-              </Typography>
-              <Typography variant="body2" sx={{ userSelect: 'text', fontWeight: 'medium', fontFamily: 'monospace' }}>
-                {selectedIncident.cause}
+          <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box>
+              <Label>Checked</Label>
+              <Typography sx={{ ...mono, fontSize: 13, overflowWrap: 'anywhere' }}>{selected.type} {selected.host}</Typography>
+            </Box>
+            <Box>
+              <Label>On failure</Label>
+              <Typography sx={{ ...mono, fontSize: 13, overflowWrap: 'anywhere', color: selected.recoveryAction ? 'text.primary' : 'text.secondary' }}>
+                {selected.recoveryAction || 'No recovery action configured'}
               </Typography>
             </Box>
-
-            {/* AI Post-Mortem Card */}
-            <Card variant="outlined" sx={{ bgcolor: 'action.hover' }}>
-              <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: 'primary.main' }}>
-                  <AutoAwesomeIcon fontSize="small" />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                    AI Post-Mortem Analysis
-                  </Typography>
-                </Stack>
-                <Typography variant="body2" color="text.secondary" sx={{ userSelect: 'text', lineHeight: 1.6 }}>
-                  {selectedIncident.aiPostMortem}
-                </Typography>
-              </CardContent>
-            </Card>
-
-            {/* Checked Endpoint */}
             <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                CHECKED URL
-              </Typography>
-              <Box sx={{ p: 1.5, bgcolor: 'black', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="caption" sx={{ color: 'grey.300', fontFamily: 'monospace', userSelect: 'text' }}>
-                  GET {selectedIncident.checkedUrl}
-                </Typography>
+              <Label>Check log</Label>
+              <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                {[...openIncident.failedChecks, ...(openIncident.recovery ? [openIncident.recovery] : [])].map((c) => (
+                  <Box component="li" key={c.timestamp} sx={{ display: 'grid', gridTemplateColumns: '84px 64px 1fr', gap: 1.5, ...mono, fontSize: 13 }}>
+                    <span>{formatClock(c.timestamp)}</span>
+                    <Box component="span" sx={(theme) => ({ fontWeight: 700, color: c.success ? 'inherit' : signal.downInk, ...theme.applyStyles('dark', { color: c.success ? 'inherit' : signal.downOnDark }) })}>
+                      {c.success ? 'UP' : 'DOWN'}
+                    </Box>
+                    <Box component="span" sx={{ color: 'text.secondary', overflowWrap: 'anywhere' }}>
+                      {c.success ? `${c.durationMillis} ms · ${c.message}` : c.message || 'Check failed'}
+                    </Box>
+                  </Box>
+                ))}
               </Box>
             </Box>
-
-            {/* Technical Metadata Accordion */}
-            <Accordion variant="outlined">
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                  Technical Request & Response Metadata
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={2} sx={{ userSelect: 'text' }}>
-                  <Grid size={{ xs: 6, sm: 4 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Response Code:</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{selectedIncident.responseCode}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 4 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Request Duration:</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{selectedIncident.requestDuration}</Typography>
-                  </Grid>
-                  <Grid size={12}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Resolved IP Addresses:</Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                      {selectedIncident.resolvedIps.join(', ')}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
-
-            {/* Incident Audit Log Timeline Stream */}
             <Box>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
-                <TimelineIcon fontSize="small" color="action" />
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                  Incident Lifecycle Audit Timeline
-                </Typography>
-              </Stack>
-              <Stack spacing={1} sx={{ pl: 1, borderLeft: '2px solid', borderColor: 'primary.main' }}>
-                {selectedIncident.timeline.map((item, idx) => (
-                  <Box key={`timeline-${item.time}-${idx}`} sx={{ pl: 1.5, py: 0.5, userSelect: 'text' }}>
-                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
-                        {item.time}
-                      </Typography>
-                      {item.location && <Chip label={item.location} size="small" variant="outlined" />}
-                    </Stack>
-                    <Typography variant="body2" color="text.primary">
-                      {item.text}
-                    </Typography>
-                  </Box>
-                ))}
-              </Stack>
-            </Box>
-
-            {/* Post-Mortem Comments Section */}
-            <Box>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
-                <CommentIcon fontSize="small" color="action" />
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                  User Investigation Notes
-                </Typography>
-              </Stack>
-              <Stack spacing={1.5} sx={{ mb: 2 }}>
-                {selectedIncident.comments.map((c, idx) => (
-                  <Box key={idx} sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, userSelect: 'text' }}>
-                    <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 'bold' }}>{c.author}</Typography>
-                      <Typography variant="caption" color="text.secondary">{c.time}</Typography>
-                    </Stack>
-                    <Typography variant="body2">{c.text}</Typography>
-                  </Box>
-                ))}
-              </Stack>
-              <Stack direction="row" spacing={1}>
+              <Label>Notes</Label>
+              {(notes[openIncident.id] ?? []).map((n) => (
+                <Box key={n.time} sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Typography sx={{ ...mono, fontSize: 12, color: 'text.secondary' }}>{formatDateTime(new Date(n.time))}</Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{n.text}</Typography>
+                </Box>
+              ))}
+              <Stack direction="row" spacing={1} sx={{ mt: 1, alignItems: 'flex-start' }}>
                 <TextField
-                  placeholder="Add investigation note..."
+                  placeholder="What caused it, what fixed it…"
                   size="small"
                   fullWidth
-                  value={commentInput}
-                  onChange={(e) => { setCommentInput(e.target.value); }}
+                  multiline
+                  minRows={2}
+                  value={noteInput}
+                  onChange={(e) => { setNoteInput(e.target.value); }}
+                  slotProps={{ htmlInput: { 'aria-label': 'Add a note to this outage' } }}
                 />
-                <Button variant="contained" size="small" onClick={handleAddComment}>
-                  Post
+                <Button variant="contained" size="small" onClick={addNote} disabled={!noteInput.trim()}>
+                  Save note
                 </Button>
               </Stack>
             </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
-            <Button variant="outlined" onClick={() => { setSelectedIncident(null); }}>
-              Close
-            </Button>
+            <Button variant="outlined" onClick={() => { setOpenIncident(null); }}>Close</Button>
           </DialogActions>
         </Dialog>
       )}

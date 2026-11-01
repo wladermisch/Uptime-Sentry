@@ -1,358 +1,298 @@
 import * as React from 'react';
-import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import MenuItem from '@mui/material/MenuItem';
-import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import InputBase from '@mui/material/InputBase';
 import CircularProgress from '@mui/material/CircularProgress';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import WarningIcon from '@mui/icons-material/Warning';
-import CancelIcon from '@mui/icons-material/Cancel';
-import { LineChart } from '@mui/x-charts/LineChart';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import { useBoard } from '../home/useBoard';
+import GateBoard from '../home/GateBoard';
+import TargetPass from '../home/TargetPass';
+import { BoardSort, DEFAULT_SORT, formatClock, nextSort, parseTs, sortRows } from '../home/boardModel';
+import { navigate } from '../nav';
+import { condensed, fonts, signal, ink, gray } from '../../shared-theme/themePrimitives';
 
-import CustomizedDataGrid from './CustomizedDataGrid';
-import LatestIncident from './LatestIncident';
-import UptimeDots from './UptimeDots';
+const mono = { fontFamily: fonts.mono, fontVariantNumeric: 'tabular-nums' } as const;
 
-interface Profile {
-  id: string;
-  name: string;
-  defaultTimeout: number;
-  checkInterval: number;
-  consecutiveFailuresLimit: number;
-  backgroundRunning: boolean;
-}
-
-interface Target {
-  id: number;
-  profileId: string;
-  name: string;
-  type: string;
-  host: string;
-  timeout: number;
-  recoveryAction: string;
-  acceptableStatusCodes: number[];
-  consecutiveFailuresLimit: number;
-  profileName: string;
-}
-
-interface CheckResult {
-  targetId: number;
-  targetName: string;
-  timestamp: string;
-  success: boolean;
-  durationMillis: number;
-  message: string;
-}
-
-export default function MainGrid() {
-  const [activeProfile, setActiveProfile] = React.useState<Profile | null>(null);
-  const [profileTargets, setProfileTargets] = React.useState<Target[]>([]);
-  const [history, setHistory] = React.useState<CheckResult[]>([]);
-  const [selectedTargetId, setSelectedTargetId] = React.useState<string>('all');
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [loading, setLoading] = React.useState(true);
-
-  const loadData = React.useCallback(async () => {
-    try {
-      const activeId = localStorage.getItem('uptime_sentry_active_id');
-      const storedProfiles = localStorage.getItem('uptime_sentry_profiles');
-      const storedTargets = localStorage.getItem('uptime_sentry_targets');
-
-      if (storedProfiles && activeId) {
-        const list = JSON.parse(storedProfiles) as Profile[];
-        const found = list.find((p) => p.id === activeId) || null;
-        setActiveProfile(found);
-      }
-
-      if (storedTargets && activeId) {
-        const list = JSON.parse(storedTargets) as Target[];
-        setProfileTargets(list.filter((t) => t.profileId === activeId));
-      }
-
-      // Fetch history
-      const r = await fetch('http://127.0.0.1:8765/api/history');
-      if (r.ok) {
-        setHistory(await r.json());
-      }
-    } catch (e) {
-      console.error('Failed to load dashboard statistics:', e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    void loadData();
-    const interval = setInterval(() => {
-      void loadData();
-    }, 5000);
-    
-    const handleProfile = () => { void loadData(); };
-    const handleSearch = (e: Event) => {
-      setSearchQuery((e as CustomEvent).detail || '');
-    };
-
-    window.addEventListener('profile-changed', handleProfile);
-    window.addEventListener('profiles-updated', handleProfile);
-    window.addEventListener('search-query', handleSearch);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('profile-changed', handleProfile);
-      window.removeEventListener('profiles-updated', handleProfile);
-      window.removeEventListener('search-query', handleSearch);
-    };
-  }, [loadData]);
-
-  // Compute profile status (UP, DEGRADED, DOWN)
-  const getProfileStatus = () => {
-    if (profileTargets.length === 0) return { label: 'NO TARGETS', color: 'default' as const };
-    
-    let onlineCount = 0;
-    let offlineCount = 0;
-
-    profileTargets.forEach((t) => {
-      const targetChecks = history.filter((h) => h.targetId === t.id);
-      if (targetChecks.length > 0) {
-        const latest = targetChecks.sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0];
-        if (latest.success) {
-          onlineCount++;
-        } else {
-          offlineCount++;
-        }
-      } else {
-        onlineCount++;
-      }
-    });
-
-    if (offlineCount === 0) {
-      return { label: 'UP (HEALTHY)', color: 'success' as const };
-    } else if (onlineCount === 0) {
-      return { label: 'DOWN (CRITICAL)', color: 'error' as const };
-    } else {
-      return { label: 'DEGRADED', color: 'warning' as const };
-    }
-  };
-
-  // Filter history based on active profile, selected target, and search query
-  const getFilteredHistory = () => {
-    let result = history;
-
-    // Filter by target selection
-    if (selectedTargetId !== 'all') {
-      result = result.filter((h) => h.targetId === Number(selectedTargetId));
-    } else {
-      const targetIds = profileTargets.map((t) => t.id);
-      result = result.filter((h) => targetIds.includes(h.targetId));
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (h) =>
-          h.targetName.toLowerCase().includes(q) ||
-          h.message.toLowerCase().includes(q) ||
-          h.timestamp.toLowerCase().includes(q)
-      );
-    }
-
-    return result;
-  };
-
-  const filteredHistory = getFilteredHistory();
-  const profileStatus = getProfileStatus();
-
-  const prepareChartData = () => {
-    if (!history || history.length === 0) {
-      return {
-        chartXAxis: ['00:00:00', '00:00:01', '00:00:02', '00:00:03', '00:00:04'],
-        latencyData: [0, 0, 0, 0, 0],
-      };
-    }
-
-    if (selectedTargetId !== 'all') {
-      const latestChecks = filteredHistory
-        .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
-        .slice(-12);
-      return {
-        chartXAxis: latestChecks.map((c) => c.timestamp.split(' ')[1] || c.timestamp),
-        latencyData: latestChecks.map((c) => Math.max(0, c.durationMillis)),
-      };
-    } else {
-      // Calculate true mathematical average latency across all targets per check cycle
-      const groups: Record<string, number[]> = {};
-      filteredHistory.forEach((c) => {
-        const timeKey = c.timestamp.split(' ')[1] || c.timestamp;
-        if (!groups[timeKey]) groups[timeKey] = [];
-        groups[timeKey].push(Math.max(0, c.durationMillis));
-      });
-
-      const sortedTimes = Object.keys(groups).sort().slice(-12);
-      const averages = sortedTimes.map((timeKey) => {
-        const vals = groups[timeKey];
-        const sum = vals.reduce((a, b) => a + b, 0);
-        return Math.round(sum / (vals.length || 1));
-      });
-
-      return {
-        chartXAxis: sortedTimes.length > 0 ? sortedTimes : ['00:00:00'],
-        latencyData: averages.length > 0 ? averages : [0],
-      };
-    }
-  };
-
-  const { chartXAxis, latencyData } = prepareChartData();
-  const hasData = filteredHistory.length > 0;
-  const lastCheck = filteredHistory.length > 0 ? filteredHistory[filteredHistory.length - 1] : null;
-  const lastUpdatedTime = lastCheck ? (lastCheck.timestamp.split(' ')[1] || lastCheck.timestamp) : new Date().toLocaleTimeString();
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px', width: '100%' }}>
-        <CircularProgress />
+function Count({ n, label, tone }: { n: number; label: string; tone?: 'down' | 'change' }) {
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.75 }}>
+      <Box
+        component="span"
+        sx={(theme) => ({
+          ...mono,
+          fontSize: 20,
+          fontWeight: 700,
+          color: n > 0 && tone === 'down' ? signal.downInk : n > 0 && tone === 'change' ? signal.changeInk : (theme.vars || theme).palette.text.primary,
+          ...theme.applyStyles('dark', {
+            color: n > 0 && tone === 'down' ? signal.downOnDark : n > 0 && tone === 'change' ? signal.change : (theme.vars || theme).palette.text.primary,
+          }),
+        })}
+      >
+        {n}
       </Box>
-    );
-  }
+      <Box component="span" sx={{ fontSize: 13, color: 'text.secondary' }}>{label}</Box>
+    </Box>
+  );
+}
+
+/** Seconds until the next automatic check cycle, ticking once a second. */
+function useCountdown(lastCycle: string | null, intervalSeconds: number | null, running: boolean) {
+  const [tick, setTick] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    if (!running) return undefined;
+    const t = setInterval(() => { setTick(Date.now()); }, 1000);
+    return () => { clearInterval(t); };
+  }, [running]);
+  if (!running || !lastCycle || !intervalSeconds) return null;
+  const next = parseTs(lastCycle).getTime() + intervalSeconds * 1000;
+  return Math.round((next - tick) / 1000);
+}
+
+function formatCountdown(sec: number) {
+  if (sec <= 0) return 'next check due';
+  const m = Math.floor(sec / 60);
+  return `next check in ${m}:${String(sec % 60).padStart(2, '0')}`;
+}
+
+function EmptyBoard({ hasProfile, profileName }: { hasProfile: boolean; profileName?: string }) {
+  return (
+    <Box sx={{ px: 3, py: 6, maxWidth: 520 }}>
+      <Box component="h2" sx={{ m: 0, fontSize: 18, fontWeight: 700 }}>
+        {hasProfile ? `No targets on ${profileName} yet` : 'No profile selected'}
+      </Box>
+      <Box sx={{ mt: 1, fontSize: 14, color: 'text.secondary', lineHeight: 1.55 }}>
+        {hasProfile
+          ? 'Add a website, server or device and it shows up here with its live status, ranked by what needs attention.'
+          : 'Pick a profile in the header, or create one to start monitoring.'}
+      </Box>
+      <Button
+        variant="contained"
+        size="small"
+        sx={{ mt: 2.5 }}
+        onClick={() => { navigate(hasProfile ? 'targets' : 'profiles'); }}
+      >
+        {hasProfile ? 'Add a target' : 'Open profiles'}
+      </Button>
+    </Box>
+  );
+}
+
+/** Home: the live gate board with the selected target's pass beside it. */
+export default function MainGrid() {
+  const board = useBoard();
+  const { rows, summary, status, autoCheck, lastCycle, now, checking, profile } = board;
+  const [selectedId, setSelectedId] = React.useState<number | null>(null);
+  const [query, setQuery] = React.useState('');
+  const [sort, setSort] = React.useState<BoardSort>(DEFAULT_SORT);
+  const [checkingAll, setCheckingAll] = React.useState(false);
+  const countdown = useCountdown(lastCycle, autoCheck?.intervalSeconds ?? null, !!autoCheck?.running);
+
+  const visible = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? rows.filter((r) => r.target.name.toLowerCase().includes(q) || r.target.host.toLowerCase().includes(q))
+      : rows;
+    return sortRows(filtered, sort);
+  }, [rows, query, sort]);
+
+  const selected = visible.find((r) => r.target.id === selectedId) ?? visible[0] ?? null;
+
+  const handleCheckAll = async () => {
+    setCheckingAll(true);
+    await board.checkAll();
+    setCheckingAll(false);
+  };
+
+  const unseenIds = rows.filter((r) => r.unseen).map((r) => r.target.id);
+  const verdict =
+    rows.length === 0 ? '' :
+    summary.down > 0 ? `${summary.down} ${summary.down === 1 ? 'target is' : 'targets are'} down` :
+    summary.recovered > 0 ? 'Everything is back up' :
+    summary.pending === rows.length ? 'Waiting for the first check' :
+    'All targets are up';
 
   return (
-    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-      {/* Overview */}
-      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-        <Typography component="h2" variant="h6">
-          Overview: {activeProfile?.name || 'No Profile'}
-        </Typography>
-        <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            Filter:
-          </Typography>
-          <TextField
-            select
-            size="small"
-            value={selectedTargetId}
-            onChange={(e) => { setSelectedTargetId(e.target.value); }}
-            sx={{ minWidth: 200 }}
-          >
-            <MenuItem value="all">Average (All Targets)</MenuItem>
-            {profileTargets.map((t) => (
-              <MenuItem key={t.id} value={t.id.toString()}>
-                {t.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Stack>
-      </Stack>
+    <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
+      {/* Board column */}
+      <Box
+        sx={(theme) => ({
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: '#FFFFFF',
+          ...theme.applyStyles('dark', { backgroundColor: ink }),
+        })}
+      >
+        {/* Board strip: verdict, cycle, board-wide actions */}
+        <Box sx={{ px: 3, pt: 2.5, pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+            <Box sx={{ mr: 'auto', minWidth: 0 }}>
+              <Box component="h2" sx={{ m: 0, ...condensed, fontSize: 30, letterSpacing: '-0.005em', lineHeight: 1.1 }}>
+                {verdict || (profile ? profile.name : 'Home')}
+              </Box>
+              <Box sx={{ ...mono, fontSize: 12, color: 'text.secondary', mt: 0.5, display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 2 }}>
+                <span>{lastCycle ? `last check ${formatClock(lastCycle)}` : 'no checks yet'}</span>
+                {autoCheck && (
+                  <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', columnGap: 1, whiteSpace: 'nowrap' }}>
+                    <span>
+                      {autoCheck.running
+                        ? `${countdown === null ? 'auto-check' : formatCountdown(countdown)} · every ${autoCheck.intervalSeconds} s`
+                        : 'auto-check paused'}
+                    </span>
+                    <Button
+                      variant="text"
+                      size="small"
+                      onClick={() => { void board.setAutoCheckRunning(!autoCheck.running); }}
+                      sx={{ height: 24, px: 0.75, minWidth: 0, fontSize: 12, textDecoration: 'underline', textUnderlineOffset: 3 }}
+                    >
+                      {autoCheck.running ? 'Pause' : 'Resume'}
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+            <Button
+              variant="outlined"
+              size="small"
+              disabled={unseenIds.length === 0}
+              onClick={() => { board.acknowledge(unseenIds); }}
+              sx={{ flexShrink: 0 }}
+            >
+              Acknowledge all
+            </Button>
+            <Button
+              sx={{ flexShrink: 0 }}
+              variant="contained"
+              size="small"
+              disabled={rows.length === 0 || checkingAll || status === 'offline'}
+              onClick={() => { void handleCheckAll(); }}
+              startIcon={checkingAll ? <CircularProgress size={14} color="inherit" /> : undefined}
+            >
+              {checkingAll ? 'Checking…' : 'Check all now'}
+            </Button>
+          </Box>
 
-      <Grid container spacing={2} columns={12} sx={{ mb: 2 }}>
-        {/* Status Card */}
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <Card
-            variant="outlined"
+          <Box sx={{ display: 'flex', alignItems: 'center', columnGap: 3, rowGap: 1, mt: 2, flexWrap: 'wrap' }}>
+            <Count n={summary.down} label="down" tone="down" />
+            <Count n={summary.recovered} label="recovered" tone="change" />
+            <Count n={summary.up} label="up" />
+            {summary.pending > 0 && <Count n={summary.pending} label="pending" />}
+            <Box
+              sx={{
+                ml: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                height: 32,
+                px: 1.25,
+                width: 220,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1.5,
+                color: 'text.secondary',
+                '&:focus-within': { borderColor: 'text.primary' },
+              }}
+            >
+              <SearchRoundedIcon sx={{ fontSize: 18 }} />
+              <InputBase
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); }}
+                placeholder="Filter by name or host"
+                inputProps={{ 'aria-label': 'Filter targets by name or host' }}
+                sx={{ fontSize: 13, flex: 1, color: 'text.primary', '& input::placeholder': { color: 'text.secondary', opacity: 1 } }}
+              />
+            </Box>
+          </Box>
+        </Box>
+
+        {status === 'offline' && (
+          <Box
+            role="alert"
             sx={{
-              height: '100%',
-              bgcolor: () => {
-                const colorVal = profileStatus.color;
-                if (colorVal === 'success') return 'rgba(76, 175, 80, 0.12)';
-                if (colorVal === 'warning') return 'rgba(255, 152, 0, 0.12)';
-                if (colorVal === 'error') return 'rgba(244, 67, 54, 0.12)';
-                return 'background.paper';
-              },
-              borderColor: () => {
-                const colorVal = profileStatus.color;
-                if (colorVal === 'success') return 'success.light';
-                if (colorVal === 'warning') return 'warning.light';
-                if (colorVal === 'error') return 'error.light';
-                return 'divider';
-              },
-              transition: 'background-color 0.3s ease, border-color 0.3s ease'
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              px: 3,
+              py: 1.25,
+              fontSize: 13,
+              backgroundColor: 'action.selected',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
             }}
           >
-            <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', gap: 1.5 }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-                Current Status
-              </Typography>
-              <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-                {profileStatus.color === 'success' ? (
-                  <CheckCircleIcon sx={{ fontSize: 44, color: 'success.main', flexShrink: 0 }} />
-                ) : profileStatus.color === 'warning' ? (
-                  <WarningIcon sx={{ fontSize: 44, color: 'warning.main', flexShrink: 0 }} />
-                ) : (
-                  <CancelIcon sx={{ fontSize: 44, color: 'error.main', flexShrink: 0 }} />
-                )}
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', lineHeight: 1.1 }}>
-                    {profileStatus.label}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Last updated at {lastUpdatedTime}
-                  </Typography>
+            <Box sx={{ flex: 1 }}>
+              <strong>Can't reach the monitoring service</strong> at 127.0.0.1:8765. The board shows the last data it received.
+            </Box>
+            <Button size="small" variant="outlined" onClick={() => { void board.reload(); }}>Retry</Button>
+          </Box>
+        )}
+
+        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <GateBoard
+            rows={visible}
+            loading={status === 'loading'}
+            selectedId={selected ? selected.target.id : null}
+            onSelect={setSelectedId}
+            sort={sort}
+            onSort={(key) => { setSort((s) => nextSort(s, key)); }}
+            now={now}
+            empty={
+              query && rows.length > 0 ? (
+                <Box sx={{ px: 3, py: 4, fontSize: 14, color: 'text.secondary' }}>
+                  No target matches “{query}”.{' '}
+                  <Button size="small" variant="text" onClick={() => { setQuery(''); }}>Clear filter</Button>
                 </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
+              ) : (
+                <EmptyBoard hasProfile={!!profile} profileName={profile?.name} />
+              )
+            }
+          />
+        </Box>
+      </Box>
 
-        {/* Latency Graph */}
-        <Grid size={{ xs: 12, sm: 8 }}>
-          <Card variant="outlined" sx={{ opacity: hasData ? 1 : 0.4 }}>
-            <CardContent sx={{ pb: '12px !important' }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Response Latency (ms) {!hasData && '(Empty Grid State)'}
-              </Typography>
-              <LineChart
-                colors={['#29b6f6']}
-                xAxis={[{
-                  scaleType: 'point',
-                  data: chartXAxis,
-                  disableLine: true,
-                  disableTicks: true,
-                }]}
-                yAxis={[{
-                  min: 0,
-                  disableLine: true,
-                  disableTicks: false,
-                }]}
-                series={[{
-                  data: latencyData,
-                  area: true,
-                  curve: 'natural',
-                }]}
-                height={220}
-                margin={{ top: 10, right: 15, left: 40, bottom: 25 }}
-              />
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Availability History Dots Grid */}
-        <Grid size={{ xs: 12 }}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-                Availability History (Last 80 check cycles)
-              </Typography>
-              <UptimeDots history={filteredHistory} limit={80} />
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Details Grid */}
-      <Typography component="h2" variant="h6" sx={{ mb: 2, mt: 3 }}>
-        Check Log Details
-      </Typography>
-      <Grid container spacing={2} columns={12}>
-        <Grid size={{ xs: 12, lg: 9 }}>
-          <CustomizedDataGrid />
-        </Grid>
-        <Grid size={{ xs: 12, lg: 3 }}>
-          <LatestIncident />
-        </Grid>
-      </Grid>
+      {/* Pass column */}
+      <Box
+        component="aside"
+        sx={(theme) => ({
+          width: { xs: 340, lg: 380 },
+          flexShrink: 0,
+          overflow: 'auto',
+          p: 2,
+          backgroundColor: gray[200],
+          borderLeft: `1px solid ${(theme.vars || theme).palette.divider}`,
+          ...theme.applyStyles('dark', { backgroundColor: gray[900] }),
+        })}
+      >
+        <Box
+          sx={(theme) => ({
+            backgroundColor: '#FFFFFF',
+            border: `1px solid ${(theme.vars || theme).palette.divider}`,
+            borderRadius: 2.5,
+            boxShadow: 'var(--template-palette-baseShadow)',
+            ...theme.applyStyles('dark', { backgroundColor: ink }),
+          })}
+        >
+          <TargetPass
+            row={selected}
+            now={now}
+            checking={selected ? checking.has(selected.target.id) : false}
+            onCheck={() => (selected ? board.checkNow(selected.target.id) : Promise.resolve(null))}
+            onAcknowledge={() => { if (selected) board.acknowledge([selected.target.id]); }}
+            onEdit={() => { navigate('targets'); }}
+            onHistory={() => {
+              navigate('analytics');
+              if (selected) {
+                const targetId = selected.target.id;
+                // Let the Analytics view mount before it receives the selection.
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('select-analytics-incident', { detail: { targetId } }));
+                }, 50);
+              }
+            }}
+          />
+        </Box>
+      </Box>
     </Box>
   );
 }

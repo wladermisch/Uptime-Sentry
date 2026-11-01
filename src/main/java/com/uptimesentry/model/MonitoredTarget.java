@@ -25,7 +25,14 @@ public class MonitoredTarget {
     private List<Integer> degradedStatusCodes;
     private int degradedLatencyThreshold = 1500; // in ms
     private boolean paused = false;
-    
+
+    /**
+     * No-argument constructor so Jackson can deserialize targets sent by the desktop app
+     * (PUT /api/targets, POST /api/targets). Fields are filled through the setters.
+     */
+    public MonitoredTarget() {
+    }
+
     /**
      * Constructor for creating a new monitored target.
      */

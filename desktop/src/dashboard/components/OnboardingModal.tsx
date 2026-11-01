@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { nextTargetId } from '../targetIds';
 import Box from '@mui/material/Box';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
@@ -60,8 +61,9 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
     if (targetHost.trim()) {
       try {
         const activeId = localStorage.getItem('uptime_sentry_active_id') || 'p_default';
+        const existing = JSON.parse(localStorage.getItem('uptime_sentry_targets') || '[]') as { id?: number; profileId?: string; host?: string; type?: string }[];
         const initialTarget = {
-          id: Date.now(),
+          id: nextTargetId(existing),
           profileId: activeId,
           name: targetName || 'First Target',
           type: targetType,
@@ -74,8 +76,13 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
           upSound: 'default-profile',
           downSound: 'default-profile',
         };
-        const existing = JSON.parse(localStorage.getItem('uptime_sentry_targets') || '[]');
-        localStorage.setItem('uptime_sentry_targets', JSON.stringify([...existing, initialTarget]));
+        // Don't add a second copy of a target the profile already has (e.g. the default Google DNS).
+        const duplicate = existing.some(
+          (t) => t.profileId === activeId && t.type === targetType && t.host?.trim().toLowerCase() === targetHost.trim().toLowerCase(),
+        );
+        if (!duplicate) {
+          localStorage.setItem('uptime_sentry_targets', JSON.stringify([...existing, initialTarget]));
+        }
       } catch (e) {
         console.error('Failed to create initial target', e);
       }

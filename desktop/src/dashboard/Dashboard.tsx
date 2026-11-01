@@ -1,9 +1,4 @@
 import * as React from 'react';
-import type {} from '@mui/x-date-pickers/themeAugmentation';
-import type {} from '@mui/x-charts/themeAugmentation';
-import type {} from '@mui/x-data-grid/themeAugmentation';
-import type {} from '@mui/x-tree-view/themeAugmentation';
-import { alpha } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -25,7 +20,6 @@ import AppSettingsAltIcon from '@mui/icons-material/AppSettingsAlt';
 import InfoIcon from '@mui/icons-material/Info';
 
 // Views
-import AppNavbar from './components/AppNavbar';
 import Header from './components/Header';
 import MainGrid from './components/MainGrid';
 import SideMenu from './components/SideMenu';
@@ -59,10 +53,11 @@ interface Target {
   profileName: string;
 }
 
-// ── NotionGate-Style About Page ──────────────────────────────────────────────
+// ── About ────────────────────────────────────────────────────────────────────
 
-function AboutPlaceholder() {
+function AboutPage() {
   const [schedulerRunning, setSchedulerRunning] = React.useState(false);
+  const [apiOnline, setApiOnline] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [checking, setChecking] = React.useState(false);
   const [updateStatus, setUpdateStatus] = React.useState<string | null>(null);
@@ -73,10 +68,11 @@ function AboutPlaceholder() {
     fetch('http://127.0.0.1:8765/api/autocheck/status')
       .then(r => r.json())
       .then(data => {
+        setApiOnline(true);
         setSchedulerRunning(data.running);
         setLoading(false);
       })
-      .catch(() => { setLoading(false); });
+      .catch(() => { setApiOnline(false); setLoading(false); });
   }, []);
 
   const parseVersion = (v: string): number[] => {
@@ -175,8 +171,8 @@ function AboutPlaceholder() {
                 <AppSettingsAltIcon fontSize="small" /> System Info
               </Typography>
               <Divider sx={{ my: 1 }} />
-              <Typography variant="body2">OS: Windows Desktop</Typography>
-              <Typography variant="body2" color="text.secondary">Running mode: Local Process Managed</Typography>
+              <Typography variant="body2">Platform: Windows desktop app</Typography>
+              <Typography variant="body2" color="text.secondary">Monitoring service: local, port 8765</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -216,7 +212,11 @@ function AboutPlaceholder() {
               <Stack spacing={1}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="body2" color="text.secondary">REST API Server:</Typography>
-                  <Chip label="ONLINE" color="success" size="small" variant="outlined" />
+                  {loading ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <Chip label={apiOnline ? 'ONLINE' : 'UNREACHABLE'} color={apiOnline ? 'success' : 'error'} size="small" variant="outlined" />
+                  )}
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="body2" color="text.secondary">Check Scheduler Service:</Typography>
@@ -274,9 +274,9 @@ function AboutPlaceholder() {
   );
 }
 
-// ── NotionGate-Style Feedback & Live Log Reader ─────────────────────────────
+// ── Feedback & live log reader ───────────────────────────────────────────────
 
-function FeedbackPlaceholder() {
+function FeedbackPage() {
   const [logLines, setLogLines] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -330,7 +330,7 @@ function FeedbackPlaceholder() {
                 size="small" 
                 variant="contained" 
                 startIcon={<BugReportIcon />} 
-                href="https://github.com/wlxd/UptimeSentry/issues"
+                href="https://github.com/wladermisch/Uptime-Sentry/issues"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -367,8 +367,9 @@ function FeedbackPlaceholder() {
 // ── Dashboard Component ───────────────────────────────────────────────────────
 
 import OnboardingModal from './components/OnboardingModal';
+import { migrateTargetIds } from './targetIds';
 
-export default function Dashboard(props: { disableCustomTheme?: boolean }) {
+export default function Dashboard() {
   const [activeTab, setActiveTab] = React.useState('home');
   const [showOnboarding, setShowOnboarding] = React.useState(false);
 
@@ -398,6 +399,16 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
         { id: 3, profileId: '2', name: 'Local API Service', type: 'HTTP', host: 'http://localhost:8765/api/targets', timeout: 3, recoveryAction: '', acceptableStatusCodes: [200], consecutiveFailuresLimit: 1, profileName: 'Dev Profile' }
       ];
       localStorage.setItem('uptime_sentry_targets', JSON.stringify(defaultTargets));
+    }
+
+    // 3. Older versions gave targets `Date.now()` ids, which the backend's int ids can't hold.
+    //    Renumber them once so they can sync and be checked.
+    try {
+      const stored = JSON.parse(localStorage.getItem('uptime_sentry_targets') || '[]') as Target[];
+      const { targets: fixed, changed } = migrateTargetIds(stored);
+      if (changed) localStorage.setItem('uptime_sentry_targets', JSON.stringify(fixed));
+    } catch (e) {
+      console.error('Failed to migrate target ids', e);
     }
   }, []);
 
@@ -454,7 +465,9 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
     window.addEventListener('nav-tab', handleTab);
     window.addEventListener('profile-changed', handleProfile);
     window.addEventListener('profiles-updated', handleProfile);
+    window.addEventListener('sync-targets', handleProfile);
     return () => {
+      window.removeEventListener('sync-targets', handleProfile);
       window.removeEventListener('nav-tab', handleTab);
       window.removeEventListener('profile-changed', handleProfile);
       window.removeEventListener('profiles-updated', handleProfile);
@@ -468,8 +481,8 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
       case 'analytics': return <AnalyticsTab />;
       case 'reports':   return <ReportsTab />;
       case 'settings':  return <SettingsTab />;
-      case 'about':     return <AboutPlaceholder />;
-      case 'feedback':  return <FeedbackPlaceholder />;
+      case 'about':     return <AboutPage />;
+      case 'feedback':  return <FeedbackPage />;
       case 'home':
       default:          return <MainGrid />;
     }
@@ -478,32 +491,21 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
   return (
     <>
       <CssBaseline enableColorScheme />
-      <Box sx={{ display: 'flex' }}>
+      <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
         <SideMenu />
-        <AppNavbar />
-        {/* Main content */}
-        <Box
-          component="main"
-          sx={(theme) => ({
-            flexGrow: 1,
-            backgroundColor: theme.vars
-              ? `rgba(${theme.vars.palette.background.defaultChannel} / 1)`
-              : alpha(theme.palette.background.default, 1),
-            overflow: 'auto',
-          })}
-        >
-          <Stack
-            spacing={2}
-            sx={{
-              alignItems: 'center',
-              mx: 3,
-              pb: 5,
-              mt: { xs: 8, md: 0 },
-            }}
-          >
-            <Header />
-            {renderContent()}
-          </Stack>
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'background.default' }}>
+          <Header activeTab={activeTab} />
+          {activeTab === 'home' ? (
+            <Box component="main" sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
+              <MainGrid />
+            </Box>
+          ) : (
+            <Box component="main" sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <Stack spacing={2} sx={{ alignItems: 'center', mx: 3, py: 3 }}>
+                {renderContent()}
+              </Stack>
+            </Box>
+          )}
         </Box>
       </Box>
       <OnboardingModal open={showOnboarding} onClose={() => { setShowOnboarding(false); }} />
