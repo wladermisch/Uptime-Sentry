@@ -5,6 +5,7 @@ A lightweight uptime monitoring application for administrators and power users t
 ## Overview
 
 Uptime-Sentry enables you to automatically monitor the reachability and performance of web services and local network devices (routers, NAS drives, personal servers, etc.) without manual browser checks. The application runs directly on your device, perfect for developers and IT professionals who need real-time visibility into critical services.
+Claude was used for the Dashboard Overhaul, the system behind (java) is self-made.
 
 ## Key Features
 
