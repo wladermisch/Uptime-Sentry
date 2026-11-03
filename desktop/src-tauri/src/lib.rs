@@ -82,13 +82,21 @@ fn launch_java(state: &AppState) {
     let java_bin = find_java_exe();
     println!("[UptimeSentry] Launching Java backend: {:?} with {:?}", jar, java_bin);
 
-    let child = Command::new(java_bin)
-        .arg("-jar")
+    let mut cmd = Command::new(java_bin);
+    cmd.arg("-jar")
         .arg(&jar)
         .arg("--api")
         .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .spawn();
+        .stderr(Stdio::inherit());
+    // java.exe is a console program: without this flag Windows opens a console window for it
+    // next to the app. The backend logs to sentry.log, so nothing is lost.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let child = cmd.spawn();
 
     match child {
         Ok(c) => {

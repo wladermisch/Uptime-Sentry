@@ -32,3 +32,24 @@ export function migrateTargetIds<T extends HasId>(targets: T[]): { targets: T[];
   }
   return { targets: fixed, changed };
 }
+
+interface TargetKey extends HasId {
+  profileId?: string;
+  type?: string;
+  host?: string;
+}
+
+/**
+ * Drops later copies of a target that check the same host the same way in the same profile
+ * (older onboarding versions added a second Google DNS). The first copy is kept.
+ */
+export function dropDuplicateTargets<T extends TargetKey>(targets: T[]): { targets: T[]; changed: boolean } {
+  const seen = new Set<string>();
+  const kept = targets.filter((t) => {
+    const key = `${t.profileId ?? ''}|${t.type ?? ''}|${(t.host ?? '').trim().toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { targets: kept, changed: kept.length !== targets.length };
+}
