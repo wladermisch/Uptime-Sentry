@@ -94,8 +94,13 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
   }, [startWithWindows, defaultUpSound, defaultDownSound, checkInterval, targetHost, targetName, targetType, onClose]);
 
   const last = activeStep === STEPS.length - 1;
-  const handleNext = () => { if (last) handleFinish(); else setActiveStep((s) => s + 1); };
-  const handleBack = () => { setActiveStep((s) => Math.max(0, s - 1)); };
+  const handleNext = React.useCallback(() => {
+    if (last) handleFinish();
+    else setActiveStep((step) => step + 1);
+  }, [last, handleFinish]);
+  const handleBack = React.useCallback(() => {
+    setActiveStep((step) => Math.max(0, step - 1));
+  }, []);
 
   return (
     <Dialog

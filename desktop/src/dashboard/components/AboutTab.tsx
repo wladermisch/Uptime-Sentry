@@ -7,22 +7,50 @@ import CircularProgress from '@mui/material/CircularProgress';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import BrandMark from './BrandMark';
 import { fonts, ink, paper, signal } from '../../shared-theme/themePrimitives';
+import { API } from '../historyStats';
 
 const APP_VERSION = 'v0.4.0';
 const REPO = 'https://github.com/wladermisch/Uptime-Sentry';
 
 const mono = { fontFamily: fonts.mono, fontVariantNumeric: 'tabular-nums' } as const;
 
+const RELEASES_URL = `${REPO}/releases`;
+
+/** True when `latest` is a higher version than `current` ("v0.10.0" > "v0.9.2"); numeric collation compares each part as a number. */
 function isNewerVersion(latest: string, current: string): boolean {
-  const parse = (v: string) => v.replace(/^v/i, '').split('.').map(Number);
-  const l = parse(latest);
-  const c = parse(current);
-  for (let i = 0; i < Math.max(l.length, c.length); i++) {
-    const a = l[i] ?? 0;
-    const b = c[i] ?? 0;
-    if (a !== b) return a > b;
+  return stripV(latest).localeCompare(stripV(current), undefined, { numeric: true }) > 0;
+}
+
+function stripV(version: string): string {
+  return version.trim().replace(/^v/i, '');
+}
+
+/** Only ever open download links that point at GitHub; anything else falls back to the releases page. */
+function safeReleaseUrl(candidate: unknown): string {
+  if (typeof candidate !== 'string') return RELEASES_URL;
+  try {
+    const url = new URL(candidate);
+    const trusted = url.protocol === 'https:' && (url.hostname === 'github.com' || url.hostname.endsWith('.githubusercontent.com'));
+    return trusted ? url.href : RELEASES_URL;
+  } catch {
+    return RELEASES_URL;
   }
-  return false;
+}
+
+interface ReleaseInfo {
+  tag: string;
+  url: string;
+}
+
+/** Reads the fields we need from GitHub's release JSON, checking their types instead of trusting the payload. */
+function parseRelease(json: unknown): ReleaseInfo | null {
+  if (typeof json !== 'object' || json === null) return null;
+  const { tag_name: tag, html_url: page, assets } = json as { tag_name?: unknown; html_url?: unknown; assets?: unknown };
+  if (typeof tag !== 'string') return null;
+  const exe = Array.isArray(assets)
+    ? (assets as { name?: unknown; browser_download_url?: unknown }[]).find((a) => typeof a.name === 'string' && a.name.endsWith('.exe'))
+    : undefined;
+  return { tag, url: safeReleaseUrl(exe?.browser_download_url ?? page) };
 }
 
 /** One labelled row of the status sheet. */
@@ -64,26 +92,23 @@ export default function AboutTab() {
   const [update, setUpdate] = React.useState<{ message: string; url?: string } | null>(null);
 
   React.useEffect(() => {
-    fetch('http://127.0.0.1:8765/api/autocheck/status')
+    fetch(`${API}/api/autocheck/status`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: { running: boolean; intervalSeconds: number }) => { setStatus({ online: true, running: d.running, interval: d.intervalSeconds }); })
       .catch(() => { setStatus({ online: false, running: false, interval: 0 }); });
   }, []);
 
-  const checkForUpdates = async () => {
+  const checkForUpdates = React.useCallback(async () => {
     setChecking(true);
     setUpdate(null);
     try {
       const res = await fetch('https://api.github.com/repos/wladermisch/Uptime-Sentry/releases/latest');
-      if (!res.ok) {
+      const release = res.ok ? parseRelease(await res.json()) : null;
+      if (!release) {
         setUpdate({ message: 'No published release found on GitHub.' });
-        return;
-      }
-      const data = (await res.json()) as { tag_name: string; html_url: string; assets?: { name: string; browser_download_url: string }[] };
-      if (isNewerVersion(data.tag_name, APP_VERSION)) {
-        const exe = data.assets?.find((a) => a.name.endsWith('.exe'));
-        setUpdate({ message: `Version ${data.tag_name} is available.`, url: exe?.browser_download_url ?? data.html_url });
-        try { localStorage.setItem('uptime_sentry_latest_release', data.tag_name); } catch { /* storage unavailable */ }
+      } else if (isNewerVersion(release.tag, APP_VERSION)) {
+        setUpdate({ message: `Version ${release.tag} is available.`, url: release.url });
+        try { localStorage.setItem('uptime_sentry_latest_release', release.tag); } catch { /* storage unavailable */ }
       } else {
         setUpdate({ message: `You're on the latest version (${APP_VERSION}).` });
       }
@@ -92,7 +117,7 @@ export default function AboutTab() {
     } finally {
       setChecking(false);
     }
-  };
+  }, []);
 
   return (
     <Box sx={{ width: '100%', maxWidth: 880 }}>
@@ -145,7 +170,7 @@ export default function AboutTab() {
               {checking ? 'Checking…' : 'Check for updates'}
             </Button>
             {update?.url && (
-              <Button size="small" variant="contained" startIcon={<OpenInNewIcon />} onClick={() => { window.open(update.url, '_blank'); }}>
+              <Button size="small" variant="contained" startIcon={<OpenInNewIcon />} onClick={() => { window.open(update.url, '_blank', 'noopener'); }}>
                 Download update
               </Button>
             )}
@@ -161,10 +186,10 @@ export default function AboutTab() {
           Free and open source, made by <strong>Wlad Ermisch</strong>.
         </Typography>
         <Stack direction="row" spacing={1} sx={{ mt: 1.5, flexWrap: 'wrap', rowGap: 1 }}>
-          <Button size="small" variant="outlined" startIcon={<OpenInNewIcon />} onClick={() => { window.open(REPO, '_blank'); }}>
+          <Button size="small" variant="outlined" startIcon={<OpenInNewIcon />} onClick={() => { window.open(REPO, '_blank', 'noopener'); }}>
             Source on GitHub
           </Button>
-          <Button size="small" variant="outlined" startIcon={<OpenInNewIcon />} onClick={() => { window.open('https://ko-fi.com/wladermisch', '_blank'); }}>
+          <Button size="small" variant="outlined" startIcon={<OpenInNewIcon />} onClick={() => { window.open('https://ko-fi.com/wladermisch', '_blank', 'noopener'); }}>
             Support on Ko-fi
           </Button>
         </Stack>

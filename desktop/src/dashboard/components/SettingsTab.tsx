@@ -131,7 +131,7 @@ export default function SettingsTab() {
   };
 
   return (
-    <Box component="form" onSubmit={handleSave} sx={{ width: '100%', maxWidth: 880 }}>
+    <Box component="form" onSubmit={(e: React.FormEvent) => { void handleSave(e); }} sx={{ width: '100%', maxWidth: 880 }}>
       <SettingsSection title="General">
         <Stack spacing={1.5}>
           <SettingsOption

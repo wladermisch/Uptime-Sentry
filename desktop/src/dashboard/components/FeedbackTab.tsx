@@ -8,10 +8,17 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { fonts, gray, ink, paper } from '../../shared-theme/themePrimitives';
+import { API } from '../historyStats';
 
 const ISSUES_URL = 'https://github.com/wladermisch/Uptime-Sentry/issues';
 
-type LogState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; lines: string[] };
+/** A log line with its 1-based position, which doubles as a stable React key. */
+interface LogLine {
+  no: number;
+  text: string;
+}
+
+type LogState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; lines: LogLine[] };
 
 export default function FeedbackTab() {
   const [logs, setLogs] = React.useState<LogState>({ kind: 'loading' });
@@ -20,9 +27,11 @@ export default function FeedbackTab() {
   const fetchLogs = React.useCallback(async () => {
     setLogs({ kind: 'loading' });
     try {
-      const r = await fetch('http://127.0.0.1:8765/api/logs');
+      const r = await fetch(`${API}/api/logs`);
       if (!r.ok) throw new Error(String(r.status));
-      setLogs({ kind: 'ready', lines: (await r.json()) as string[] });
+      const raw: unknown = await r.json();
+      const texts = Array.isArray(raw) ? raw.filter((l): l is string => typeof l === 'string') : [];
+      setLogs({ kind: 'ready', lines: texts.map((text, i) => ({ no: i + 1, text })) });
     } catch {
       setLogs({ kind: 'error' });
     }
@@ -30,16 +39,16 @@ export default function FeedbackTab() {
 
   React.useEffect(() => { void fetchLogs(); }, [fetchLogs]);
 
-  const handleCopy = async () => {
+  const handleCopy = React.useCallback(async () => {
     if (logs.kind !== 'ready') return;
     try {
-      await navigator.clipboard.writeText(logs.lines.join('\n'));
+      await navigator.clipboard.writeText(logs.lines.map((l) => l.text).join('\n'));
       setCopied(true);
       setTimeout(() => { setCopied(false); }, 2000);
     } catch {
       // Clipboard unavailable: leave the button as it was.
     }
-  };
+  }, [logs]);
 
   const lines = logs.kind === 'ready' ? logs.lines : [];
 
@@ -69,7 +78,7 @@ export default function FeedbackTab() {
         >
           {copied ? 'Copied' : 'Copy log'}
         </Button>
-        <Button size="small" variant="contained" startIcon={<OpenInNewIcon />} onClick={() => { window.open(ISSUES_URL, '_blank'); }}>
+        <Button size="small" variant="contained" startIcon={<OpenInNewIcon />} onClick={() => { window.open(ISSUES_URL, '_blank', 'noopener'); }}>
           Open GitHub issues
         </Button>
       </Stack>
@@ -99,13 +108,13 @@ export default function FeedbackTab() {
           <Box sx={{ color: gray[300] }}>Can't reach the monitoring service at 127.0.0.1:8765, so the log is unavailable.</Box>
         )}
         {logs.kind === 'ready' && lines.length === 0 && <Box sx={{ color: gray[400] }}>The log is empty.</Box>}
-        {lines.map((line, idx) => {
-          const level = /\[(ERROR|WARN(?:ING)?)\]/.exec(line)?.[1];
+        {lines.map((line) => {
+          const level = /\[(ERROR|WARN(?:ING)?)\]/.exec(line.text)?.[1];
           return (
-            <Box key={idx} sx={{ display: 'grid', gridTemplateColumns: '3.5em 1fr', gap: 2 }}>
-              <Box component="span" sx={{ color: gray[500], textAlign: 'right', userSelect: 'none' }}>{idx + 1}</Box>
+            <Box key={line.no} sx={{ display: 'grid', gridTemplateColumns: '3.5em 1fr', gap: 2 }}>
+              <Box component="span" sx={{ color: gray[500], textAlign: 'right', userSelect: 'none' }}>{line.no}</Box>
               <Box component="span" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', color: level ? (level === 'ERROR' ? '#FF8F89' : '#F7CD6B') : paper }}>
-                {line}
+                {line.text}
               </Box>
             </Box>
           );
