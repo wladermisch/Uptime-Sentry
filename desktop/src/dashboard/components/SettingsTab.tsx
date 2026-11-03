@@ -1,16 +1,11 @@
 import * as React from 'react';
+import { fonts } from '../../shared-theme/themePrimitives';
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Divider from '@mui/material/Divider';
-import Tooltip from '@mui/material/Tooltip';
-import HelpIcon from '@mui/icons-material/Help';
 import SaveIcon from '@mui/icons-material/Save';
 import Stack from '@mui/material/Stack';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -136,236 +131,159 @@ export default function SettingsTab() {
   };
 
   return (
-    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, userSelect: 'none' }}>
-      <Typography component="h2" variant="h6" sx={{ mb: 2 }}>
-        Application Settings
-      </Typography>
-      <Card variant="outlined" component="form" onSubmit={handleSave}>
-        <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* General Section */}
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-              General Options
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Stack spacing={1}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.startWithWindows}
-                    onChange={(e) => { setSettings({ ...settings, startWithWindows: e.target.checked }); }}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
-                    <span>Start Uptime Sentry with Windows booting</span>
-                    <Tooltip title="If checked, Uptime Sentry will automatically launch in the system tray when Windows boots.">
-                      <HelpIcon sx={{ fontSize: '1.1rem', color: 'text.secondary', cursor: 'help' }} />
-                    </Tooltip>
-                  </Stack>
-                }
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.autoCheckUpdates}
-                    onChange={(e) => { setSettings({ ...settings, autoCheckUpdates: e.target.checked }); }}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
-                    <span>Auto check for new updates</span>
-                    <Tooltip title="Allows Uptime Sentry to automatically verify releases in the background.">
-                      <HelpIcon sx={{ fontSize: '1.1rem', color: 'text.secondary', cursor: 'help' }} />
-                    </Tooltip>
-                  </Stack>
-                }
-              />
-            </Stack>
-          </Box>
+    <Box component="form" onSubmit={(e: React.FormEvent) => { void handleSave(e); }} sx={{ width: '100%', maxWidth: 880 }}>
+      <SettingsSection title="General">
+        <Stack spacing={1.5}>
+          <SettingsOption
+            checked={settings.startWithWindows}
+            onChange={(v) => { setSettings({ ...settings, startWithWindows: v }); }}
+            label="Start Uptime Sentry when Windows starts"
+            help="Opens minimized in the system tray after you sign in."
+          />
+          <SettingsOption
+            checked={settings.autoCheckUpdates}
+            onChange={(v) => { setSettings({ ...settings, autoCheckUpdates: v }); }}
+            label="Check for updates automatically"
+            help="Looks for a newer release on GitHub in the background."
+          />
+        </Stack>
+      </SettingsSection>
 
-          {/* Notifications Section */}
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-              Alert & Notification Options
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Stack spacing={2}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.enableNotifications}
-                    onChange={(e) => { setSettings({ ...settings, enableNotifications: e.target.checked }); }}
-                    color="primary"
-                  />
-                }
-                label="Enable Desktop Notification Popups (System Tray)"
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.playSoundAlert}
-                    onChange={(e) => { setSettings({ ...settings, playSoundAlert: e.target.checked }); }}
-                    color="primary"
-                  />
-                }
-                label="Play audio sound alert on target downtime"
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.emailAlertsEnabled}
-                    onChange={(e) => { setSettings({ ...settings, emailAlertsEnabled: e.target.checked }); }}
-                    color="primary"
-                  />
-                }
-                label="Forward outage details via email"
-              />
-              {settings.emailAlertsEnabled && (
-                <TextField
-                  label="Recipient Email Address"
-                  type="email"
-                  size="small"
-                  fullWidth
-                  required
-                  value={settings.emailRecipient}
-                  onChange={(e) => { setSettings({ ...settings, emailRecipient: e.target.value }); }}
-                  sx={{ maxWidth: '400px', mt: 1 }}
-                />
-              )}
-            </Stack>
-          </Box>
-
-          {/* Audio Sounds Config */}
-          {settings.playSoundAlert && (
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                Global Default Audio Sounds
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Autocomplete
-                    disableClearable
-                    options={upSoundsList}
-                    value={settings.defaultUpSound}
-                    onChange={(_e, val) => {
-                      if (val) {
-                        setSettings((prev) => ({ ...prev, defaultUpSound: val }));
-                        playPreview(val, 'up', settings.volume);
-                      }
-                    }}
-                    sx={{
-                      userSelect: 'none',
-                      '& .MuiAutocomplete-endAdornment': { top: 'calc(50% - 14px)' },
-                      '& .MuiIconButton-root': { width: 28, height: 28, padding: 0.5 }
-                    }}
-                    renderInput={(params) => (
-                      <TextField {...params} label="Default Up Sound (Recovery)" size="small" />
-                    )}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Autocomplete
-                    disableClearable
-                    options={downSoundsList}
-                    value={settings.defaultDownSound}
-                    onChange={(_e, val) => {
-                      if (val) {
-                        setSettings((prev) => ({ ...prev, defaultDownSound: val }));
-                        playPreview(val, 'down', settings.volume);
-                      }
-                    }}
-                    sx={{
-                      userSelect: 'none',
-                      '& .MuiAutocomplete-endAdornment': { top: 'calc(50% - 14px)' },
-                      '& .MuiIconButton-root': { width: 28, height: 28, padding: 0.5 }
-                    }}
-                    renderInput={(params) => (
-                      <TextField {...params} label="Default Down Sound (Outage)" size="small" />
-                    )}
-                  />
-                </Grid>
-                <Grid size={12}>
-                  <Typography id="volume-slider-label" variant="body2" color="text.secondary" gutterBottom>
-                    Playback Volume ({settings.volume}%)
-                  </Typography>
-                  <Stack direction="row" spacing={2} sx={{ alignItems: 'center', maxWidth: 400 }}>
-                    <VolumeUp sx={{ color: 'text.secondary' }} />
-                    <Slider
-                      aria-labelledby="volume-slider-label"
-                      value={settings.volume}
-                      onChange={handleVolumeChange}
-                      min={0}
-                      max={100}
-                      size="small"
-                    />
-                  </Stack>
-                </Grid>
-              </Grid>
-            </Box>
+      <SettingsSection title="Alerts">
+        <Stack spacing={1.5}>
+          <SettingsOption
+            checked={settings.enableNotifications}
+            onChange={(v) => { setSettings({ ...settings, enableNotifications: v }); }}
+            label="Show desktop notifications"
+            help="A system tray notification when a target goes down or recovers."
+          />
+          <SettingsOption
+            checked={settings.playSoundAlert}
+            onChange={(v) => { setSettings({ ...settings, playSoundAlert: v }); }}
+            label="Play a sound when a target goes down or recovers"
+          />
+          <SettingsOption
+            checked={settings.emailAlertsEnabled}
+            onChange={(v) => { setSettings({ ...settings, emailAlertsEnabled: v }); }}
+            label="Email outage details"
+          />
+          {settings.emailAlertsEnabled && (
+            <TextField
+              label="Send to"
+              type="email"
+              size="small"
+              fullWidth
+              required
+              placeholder="name@example.com"
+              value={settings.emailRecipient}
+              onChange={(e) => { setSettings({ ...settings, emailRecipient: e.target.value }); }}
+              sx={{ maxWidth: 400, ml: { sm: 4.5 } }}
+            />
           )}
+        </Stack>
+      </SettingsSection>
 
-          {/* Logs Retention */}
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-              Log Retention Limits & Disk Usage
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Stack direction="column" spacing={2}>
-              <TextField
-                label="Keep history check logs for (days)"
-                type="number"
-                size="small"
-                fullWidth
-                required
-                value={settings.logRetentionDays}
-                onChange={(e) => { setSettings({ ...settings, logRetentionDays: Number(e.target.value) }); }}
-                sx={{ maxWidth: '280px' }}
-                slotProps={{
-                  input: {
-                    endAdornment: (
-                      <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
-                        <Typography variant="caption" color="text.secondary">days</Typography>
-                        <Tooltip title="Purges old check logs from history database to optimize storage.">
-                          <HelpIcon sx={{ fontSize: '1.2rem', color: 'text.secondary', cursor: 'help' }} />
-                        </Tooltip>
-                      </Stack>
-                    ),
-                  }
-                }}
-              />
-
-              <Box sx={{ p: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                  Check history
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ userSelect: 'text' }}>
-                  {storage
-                    ? <>Recorded checks: <strong>{storage.checks}</strong> · Size: <strong>{storage.bytes < 1024 ? `${storage.bytes} B` : `${(storage.bytes / 1024).toFixed(1)} KB`}</strong>{storage.oldest ? <> · Oldest: <strong>{storage.oldest}</strong></> : null}</>
-                    : 'Check history is unavailable while the monitoring service is unreachable.'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                  The monitoring service currently keeps the latest 200 checks across all targets. The retention period above is saved but not applied yet.
-                </Typography>
-              </Box>
-            </Stack>
+      {settings.playSoundAlert && (
+        <SettingsSection title="Sounds">
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5, maxWidth: 640 }}>
+            <Autocomplete
+              disableClearable
+              options={upSoundsList}
+              value={settings.defaultUpSound}
+              onChange={(_e, val) => {
+                if (val) {
+                  setSettings((prev) => ({ ...prev, defaultUpSound: val }));
+                  playPreview(val, 'up', settings.volume);
+                }
+              }}
+              renderInput={(params) => <TextField {...params} label="When a target recovers" size="small" />}
+            />
+            <Autocomplete
+              disableClearable
+              options={downSoundsList}
+              value={settings.defaultDownSound}
+              onChange={(_e, val) => {
+                if (val) {
+                  setSettings((prev) => ({ ...prev, defaultDownSound: val }));
+                  playPreview(val, 'down', settings.volume);
+                }
+              }}
+              renderInput={(params) => <TextField {...params} label="When a target goes down" size="small" />}
+            />
           </Box>
+          <Typography id="volume-slider-label" sx={{ mt: 2.5, mb: 0.5, fontSize: 12.5, fontWeight: 600, color: 'text.secondary' }}>
+            Volume
+          </Typography>
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'center', maxWidth: 400 }}>
+            <VolumeUp sx={{ color: 'text.secondary' }} />
+            <Slider aria-labelledby="volume-slider-label" value={settings.volume} onChange={handleVolumeChange} min={0} max={100} size="small" />
+            <Typography sx={{ fontFamily: fonts.mono, fontSize: 13, width: 44, textAlign: 'right' }}>{settings.volume}%</Typography>
+          </Stack>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Picking a sound plays a preview.
+          </Typography>
+        </SettingsSection>
+      )}
 
-          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Button type="submit" variant="contained" startIcon={<SaveIcon />}>
-              Save Settings
-            </Button>
-            {saved && (
-              <Typography variant="caption" color="success.main" sx={{ fontWeight: 'medium' }}>
-                Settings saved successfully!
-              </Typography>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
+      <SettingsSection title="Check history">
+        <TextField
+          label="Keep history for (days)"
+          type="number"
+          size="small"
+          required
+          value={settings.logRetentionDays}
+          onChange={(e) => { setSettings({ ...settings, logRetentionDays: Number(e.target.value) }); }}
+          sx={{ maxWidth: 220 }}
+          helperText="Saved, but not applied by the monitoring service yet."
+          slotProps={{ htmlInput: { min: 1 } }}
+        />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2, fontFamily: fonts.mono, fontSize: 13 }}>
+          {storage
+            ? `${storage.checks} checks recorded · ${storage.bytes < 1024 ? `${storage.bytes} B` : `${(storage.bytes / 1024).toFixed(1)} KB`}${storage.oldest ? ` · oldest ${storage.oldest}` : ''}`
+            : 'Check history is unavailable while the monitoring service is unreachable.'}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          The monitoring service keeps the latest 200 checks across all targets.
+        </Typography>
+      </SettingsSection>
+
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Button type="submit" variant="contained" startIcon={<SaveIcon />}>
+          Save settings
+        </Button>
+        <Typography role="status" variant="body2" sx={{ fontWeight: 600 }}>
+          {saved ? 'Settings saved' : ''}
+        </Typography>
+      </Stack>
+    </Box>
+  );
+}
+
+/** A checkbox option with an optional one-line explanation under it. */
+function SettingsOption({ checked, onChange, label, help }: { checked: boolean; onChange: (v: boolean) => void; label: string; help?: string }) {
+  return (
+    <Box>
+      <FormControlLabel
+        control={<Checkbox checked={checked} onChange={(e) => { onChange(e.target.checked); }} />}
+        label={label}
+        sx={{ ml: -1, '& .MuiFormControlLabel-label': { fontSize: 14 } }}
+      />
+      {help && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4.5, mt: -0.75, lineHeight: 1.45 }}>
+          {help}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Box component="section" sx={{ py: 3, borderTop: '1px solid', borderColor: 'divider', '&:first-of-type': { borderTop: 'none', pt: 0 } }}>
+      <Typography component="h3" variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+        {title}
+      </Typography>
+      {children}
     </Box>
   );
 }

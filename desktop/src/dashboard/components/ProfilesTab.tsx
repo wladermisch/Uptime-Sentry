@@ -414,9 +414,7 @@ export default function ProfilesTab() {
                         }
                       }}
                       sx={{
-                        userSelect: 'none',
-                        '& .MuiAutocomplete-endAdornment': { top: 'calc(50% - 14px)' },
-                        '& .MuiIconButton-root': { width: 28, height: 28, padding: 0.5 }
+                        userSelect: 'none'
                       }}
                       renderInput={(params) => (
                         <TextField {...params} label="Default Up Sound (Recovery)" size="small" />
@@ -435,9 +433,7 @@ export default function ProfilesTab() {
                         }
                       }}
                       sx={{
-                        userSelect: 'none',
-                        '& .MuiAutocomplete-endAdornment': { top: 'calc(50% - 14px)' },
-                        '& .MuiIconButton-root': { width: 28, height: 28, padding: 0.5 }
+                        userSelect: 'none'
                       }}
                       renderInput={(params) => (
                         <TextField {...params} label="Default Down Sound (Outage)" size="small" />

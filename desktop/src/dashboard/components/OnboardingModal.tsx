@@ -2,28 +2,31 @@ import * as React from 'react';
 import { nextTargetId } from '../targetIds';
 import Box from '@mui/material/Box';
 import Dialog from '@mui/material/Dialog';
-import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
-import Stepper from '@mui/material/Stepper';
-import Step from '@mui/material/Step';
-import StepLabel from '@mui/material/StepLabel';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
 import TextField from '@mui/material/TextField';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
-import Divider from '@mui/material/Divider';
 import MenuItem from '@mui/material/MenuItem';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import SpeedIcon from '@mui/icons-material/Speed';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import TrackChangesRoundedIcon from '@mui/icons-material/TrackChangesRounded';
+import AnalyticsRoundedIcon from '@mui/icons-material/AnalyticsRounded';
+import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import BrandMark from './BrandMark';
+import { fonts, ink, paper } from '../../shared-theme/themePrimitives';
 
-const STEPS = ['Welcome', 'Feature Tour', 'Initial Settings', 'First Target Setup'];
+const STEPS = ['Welcome', 'Tour', 'Preferences', 'First target'];
+
+const TOUR = [
+  { icon: <HomeRoundedIcon />, title: 'Home', text: 'Everything you monitor on one board, ranked so whatever is down comes first, with when it went down and why.' },
+  { icon: <TrackChangesRoundedIcon />, title: 'Targets & Profiles', text: 'Add websites (HTTP) or devices on your network (ping), group them into profiles, and set alert sounds and recovery scripts.' },
+  { icon: <AnalyticsRoundedIcon />, title: 'Analytics', text: 'Availability and every recorded outage for each target, built from its real check history.' },
+  { icon: <AssignmentRoundedIcon />, title: 'Reports', text: 'Export availability and outage reports as Markdown, plain text or PDF.' },
+];
 
 interface OnboardingModalProps {
   open: boolean;
@@ -33,31 +36,28 @@ interface OnboardingModalProps {
 export default function OnboardingModal({ open, onClose }: OnboardingModalProps) {
   const [activeStep, setActiveStep] = React.useState(0);
 
-  // Settings State
+  // Preferences
   const [startWithWindows, setStartWithWindows] = React.useState(true);
   const [defaultUpSound, setDefaultUpSound] = React.useState('Up-Default.wav');
   const [defaultDownSound, setDefaultDownSound] = React.useState('Down-Default.wav');
   const [checkInterval, setCheckInterval] = React.useState(60);
-  const [logRetentionDays, setLogRetentionDays] = React.useState(90);
 
-  // First Target State
-  const [targetName, setTargetName] = React.useState('Google DNS');
+  // First target (optional)
+  const [targetName, setTargetName] = React.useState('');
   const [targetType, setTargetType] = React.useState('PING');
-  const [targetHost, setTargetHost] = React.useState('8.8.8.8');
-  const [targetTimeout] = React.useState(5);
+  const [targetHost, setTargetHost] = React.useState('');
+  const targetTimeout = 5;
 
   const handleFinish = React.useCallback(() => {
-    // Save settings
     const settings = {
       startWithWindows,
       defaultUpSound,
       defaultDownSound,
-      logRetentionDays,
+      logRetentionDays: 90,
       defaultCheckInterval: checkInterval,
     };
     localStorage.setItem('uptime_sentry_settings', JSON.stringify(settings));
 
-    // Save initial target if host is provided
     if (targetHost.trim()) {
       try {
         const activeId = localStorage.getItem('uptime_sentry_active_id') || 'p_default';
@@ -65,9 +65,9 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
         const initialTarget = {
           id: nextTargetId(existing),
           profileId: activeId,
-          name: targetName || 'First Target',
+          name: targetName.trim() || targetHost.trim(),
           type: targetType,
-          host: targetHost,
+          host: targetHost.trim(),
           timeout: targetTimeout,
           recoveryAction: '',
           acceptableStatusCodes: [200, 201],
@@ -82,6 +82,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
         );
         if (!duplicate) {
           localStorage.setItem('uptime_sentry_targets', JSON.stringify([...existing, initialTarget]));
+          window.dispatchEvent(new CustomEvent('profiles-updated'));
         }
       } catch (e) {
         console.error('Failed to create initial target', e);
@@ -90,298 +91,181 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
 
     localStorage.setItem('uptime_sentry_onboarded', 'true');
     onClose();
-  }, [startWithWindows, defaultUpSound, defaultDownSound, logRetentionDays, checkInterval, targetHost, targetName, targetType, targetTimeout, onClose]);
+  }, [startWithWindows, defaultUpSound, defaultDownSound, checkInterval, targetHost, targetName, targetType, onClose]);
 
-  const handleNext = () => {
-    if (activeStep === STEPS.length - 1) {
-      handleFinish();
-    } else {
-      setActiveStep((prev) => prev + 1);
-    }
-  };
-
-  const handleBack = () => {
-    setActiveStep((prev) => Math.max(0, prev - 1));
-  };
+  const last = activeStep === STEPS.length - 1;
+  const handleNext = React.useCallback(() => {
+    if (last) handleFinish();
+    else setActiveStep((step) => step + 1);
+  }, [last, handleFinish]);
+  const handleBack = React.useCallback(() => {
+    setActiveStep((step) => Math.max(0, step - 1));
+  }, []);
 
   return (
     <Dialog
       open={open}
       fullScreen
-      slotProps={{
-        paper: {
-          sx: {
-            bgcolor: '#0a0d14',
-            color: '#fff',
-          }
-        }
-      }}
+      aria-labelledby="onboarding-title"
+      slotProps={{ paper: { sx: { backgroundColor: 'background.default', backgroundImage: 'none' } } }}
     >
-      <DialogContent sx={{ p: { xs: 3, md: 6 }, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '100vh' }}>
-        {/* Top Header */}
-        <Box sx={{ maxWidth: 900, mx: 'auto', width: '100%', mb: 4 }}>
-          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'primary.main', letterSpacing: 0.5 }}>
-              UPTIME SENTRY
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 'medium' }}>
-              STEP {activeStep + 1} OF {STEPS.length}
+      <Box sx={{ minHeight: '100%', display: 'flex', flexDirection: 'column', px: { xs: 3, md: 6 }, py: { xs: 3, md: 5 } }}>
+        {/* Brand and progress */}
+        <Box sx={{ width: '100%', maxWidth: 760, mx: 'auto' }}>
+          <Stack direction="row" sx={{ alignItems: 'center', gap: 1.5 }}>
+            <Box sx={(theme) => ({ color: ink, '--brandmark-ink': paper, display: 'flex', ...theme.applyStyles('dark', { color: paper, '--brandmark-ink': ink }) })}>
+              <BrandMark size={32} />
+            </Box>
+            <Typography sx={{ fontWeight: 800, fontSize: 18, mr: 'auto' }}>Uptime Sentry</Typography>
+            <Typography sx={{ fontFamily: fonts.mono, fontSize: 12, color: 'text.secondary' }}>
+              Step {activeStep + 1} of {STEPS.length}
             </Typography>
           </Stack>
-
-          <Stepper activeStep={activeStep} alternativeLabel>
-            {STEPS.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
+          <Box component="ol" aria-label="Setup steps" sx={{ listStyle: 'none', p: 0, m: 0, mt: 3, display: 'grid', gridTemplateColumns: `repeat(${STEPS.length}, 1fr)`, gap: 1 }}>
+            {STEPS.map((label, i) => (
+              <Box component="li" key={label} aria-current={i === activeStep ? 'step' : undefined}>
+                <Box sx={{ height: 4, borderRadius: 2, backgroundColor: i <= activeStep ? 'text.primary' : 'divider', transition: 'background-color 200ms ease-out' }} />
+                <Typography sx={{ mt: 1, fontSize: 12.5, fontWeight: i === activeStep ? 700 : 500, color: i <= activeStep ? 'text.primary' : 'text.secondary' }}>
+                  {label}
+                </Typography>
+              </Box>
             ))}
-          </Stepper>
+          </Box>
         </Box>
 
-        {/* Step Content Card */}
-        <Box sx={{ maxWidth: 900, mx: 'auto', width: '100%', flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          {activeStep === 0 && (
-            <Card variant="outlined" sx={{ bgcolor: 'background.paper', p: { xs: 2, md: 4 } }}>
-              <CardContent sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                <Box sx={{ p: 2, bgcolor: 'rgba(41, 182, 246, 0.1)', borderRadius: '50%', color: 'primary.main' }}>
-                  <SpeedIcon sx={{ fontSize: 56 }} />
-                </Box>
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  Welcome to UptimeSentry
+        {/* Step content */}
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', py: 4 }}>
+          <Box
+            sx={{
+              width: '100%',
+              maxWidth: 760,
+              mx: 'auto',
+              backgroundColor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2.5,
+              p: { xs: 3, md: 5 },
+            }}
+          >
+            {activeStep === 0 && (
+              <Stack spacing={2.5}>
+                <Typography id="onboarding-title" component="h1" sx={{ fontSize: 40, fontWeight: 800, fontStretch: '72%', lineHeight: 1.05 }}>
+                  Welcome to Uptime Sentry
                 </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 650, lineHeight: 1.6 }}>
-                  High-performance, open-source desktop monitoring control center. Track endpoint availability, response latency, and run automatic recovery commands with zero cloud server dependencies.
+                <Typography sx={{ fontSize: 16, lineHeight: 1.6, color: 'text.secondary', maxWidth: '60ch' }}>
+                  Uptime Sentry watches your websites, servers and network devices from this computer, with no account and no cloud.
+                  It tells you the moment something goes down or comes back, and can run a script to fix it.
                 </Typography>
-
-                <Divider sx={{ width: '100%', my: 2 }} />
-
-                <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2, width: '100%', maxWidth: 550 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                    Open Source & Developer Credits
+                <Box sx={{ pt: 2.5, mt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Free and open source, made by <strong>Wlad Ermisch</strong>.
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Created & Developed by <strong>Wlad Ermisch</strong>
-                  </Typography>
-                  <Stack direction="row" spacing={2} sx={{ justifyContent: 'center', flexWrap: 'wrap', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<OpenInNewIcon />}
-                      onClick={() => { window.open('https://github.com/wladermisch', '_blank'); }}
-                    >
-                      GitHub (@wladermisch)
+                  <Stack direction="row" spacing={1} sx={{ mt: 1.5, flexWrap: 'wrap', rowGap: 1 }}>
+                    <Button variant="outlined" size="small" startIcon={<OpenInNewIcon />} onClick={() => { window.open('https://github.com/wladermisch/Uptime-Sentry', '_blank'); }}>
+                      Source on GitHub
                     </Button>
-                    <Button
-                      variant="contained"
-                      color="secondary"
-                      size="small"
-                      startIcon={<OpenInNewIcon />}
-                      onClick={() => { window.open('https://ko-fi.com/wladermisch', '_blank'); }}
-                    >
+                    <Button variant="outlined" size="small" startIcon={<OpenInNewIcon />} onClick={() => { window.open('https://ko-fi.com/wladermisch', '_blank'); }}>
                       Support on Ko-fi
                     </Button>
                   </Stack>
                 </Box>
-              </CardContent>
-            </Card>
-          )}
+              </Stack>
+            )}
 
-          {activeStep === 1 && (
-            <Card variant="outlined" sx={{ bgcolor: 'background.paper', p: { xs: 2, md: 4 } }}>
-              <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', textAlign: 'center' }}>
-                  Feature Walkthrough & Navigation Guide
+            {activeStep === 1 && (
+              <Stack spacing={3}>
+                <Typography id="onboarding-title" component="h1" sx={{ fontSize: 30, fontWeight: 800, fontStretch: '72%', lineHeight: 1.1 }}>
+                  Where things are
                 </Typography>
-
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1.5, height: '100%' }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 0.5 }}>
-                        📊 Home Dashboard
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Live real-time latency graphs, active target statuses, availability dots, and recent incident logs.
-                      </Typography>
+                <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0, display: 'grid', gap: 2.5 }}>
+                  {TOUR.map((item) => (
+                    <Box component="li" key={item.title} sx={{ display: 'grid', gridTemplateColumns: '40px 1fr', gap: 2, alignItems: 'start' }}>
+                      <Box sx={{ width: 40, height: 40, borderRadius: 1.5, display: 'grid', placeItems: 'center', backgroundColor: 'text.primary', color: 'background.paper', '& svg': { fontSize: 22 } }}>
+                        {item.icon}
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontWeight: 700 }}>{item.title}</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.55 }}>{item.text}</Typography>
+                      </Box>
                     </Box>
-                  </Grid>
+                  ))}
+                </Box>
+              </Stack>
+            )}
 
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1.5, height: '100%' }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 0.5 }}>
-                        🎯 Targets & Profiles
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Configure HTTP URLs & PING targets, setup keyword matching rules, sound alerts, and recovery scripts.
-                      </Typography>
-                    </Box>
-                  </Grid>
-
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1.5, height: '100%' }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 0.5 }}>
-                        📈 Analytics SLA Suite
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Deep incident post-mortems, response breakdown, SLA tier metrics, and lifecycle audit timelines.
-                      </Typography>
-                    </Box>
-                  </Grid>
-
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1.5, height: '100%' }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 0.5 }}>
-                        📄 SLA Reports Generator
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Export formatted Markdown (.md), Plain Text (.txt), and PDF reports directly to your computer.
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          )}
-
-          {activeStep === 2 && (
-            <Card variant="outlined" sx={{ bgcolor: 'background.paper', p: { xs: 2, md: 4 } }}>
-              <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                  Initial Application Preferences
+            {activeStep === 2 && (
+              <Stack spacing={3}>
+                <Typography id="onboarding-title" component="h1" sx={{ fontSize: 30, fontWeight: 800, fontStretch: '72%', lineHeight: 1.1 }}>
+                  Preferences
                 </Typography>
-
                 <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={startWithWindows}
-                      onChange={(e) => { setStartWithWindows(e.target.checked); }}
-                      color="primary"
-                    />
-                  }
-                  label="Start UptimeSentry automatically when Windows starts"
+                  control={<Checkbox checked={startWithWindows} onChange={(e) => { setStartWithWindows(e.target.checked); }} />}
+                  label="Start Uptime Sentry when Windows starts"
+                  sx={{ ml: -1 }}
                 />
+                <TextField
+                  label="Check every (seconds)"
+                  type="number"
+                  size="small"
+                  value={checkInterval}
+                  onChange={(e) => { setCheckInterval(Math.max(5, Number(e.target.value) || 60)); }}
+                  helperText="How often each target is checked. You can change it per profile later."
+                  sx={{ maxWidth: 280 }}
+                  slotProps={{ htmlInput: { min: 5 } }}
+                />
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <TextField select label="Sound when a target recovers" size="small" fullWidth value={defaultUpSound} onChange={(e) => { setDefaultUpSound(e.target.value); }}>
+                    <MenuItem value="Up-Default.wav">Up-Default.wav</MenuItem>
+                    <MenuItem value="Up2.wav">Up2.wav</MenuItem>
+                    <MenuItem value="no-sound">No sound</MenuItem>
+                  </TextField>
+                  <TextField select label="Sound when a target goes down" size="small" fullWidth value={defaultDownSound} onChange={(e) => { setDefaultDownSound(e.target.value); }}>
+                    <MenuItem value="Down-Default.wav">Down-Default.wav</MenuItem>
+                    <MenuItem value="Critical-Alert.wav">Critical-Alert.wav</MenuItem>
+                    <MenuItem value="no-sound">No sound</MenuItem>
+                  </TextField>
+                </Box>
+              </Stack>
+            )}
 
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      label="Default Check Interval (seconds)"
-                      type="number"
-                      size="small"
-                      fullWidth
-                      value={checkInterval}
-                      onChange={(e) => { setCheckInterval(Number(e.target.value)); }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      label="Log Retention Limits (days)"
-                      type="number"
-                      size="small"
-                      fullWidth
-                      value={logRetentionDays}
-                      onChange={(e) => { setLogRetentionDays(Number(e.target.value)); }}
-                    />
-                  </Grid>
-                </Grid>
-
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      select
-                      label="Default Up Sound (Recovery)"
-                      size="small"
-                      fullWidth
-                      value={defaultUpSound}
-                      onChange={(e) => { setDefaultUpSound(e.target.value); }}
-                    >
-                      <MenuItem value="Up-Default.wav">Up-Default.wav</MenuItem>
-                      <MenuItem value="Up2.wav">Up2.wav</MenuItem>
-                      <MenuItem value="no-sound">No Sound (Muted)</MenuItem>
-                    </TextField>
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      select
-                      label="Default Down Sound (Outage)"
-                      size="small"
-                      fullWidth
-                      value={defaultDownSound}
-                      onChange={(e) => { setDefaultDownSound(e.target.value); }}
-                    >
-                      <MenuItem value="Down-Default.wav">Down-Default.wav</MenuItem>
-                      <MenuItem value="Critical-Alert.wav">Critical-Alert.wav</MenuItem>
-                      <MenuItem value="no-sound">No Sound (Muted)</MenuItem>
-                    </TextField>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          )}
-
-          {activeStep === 3 && (
-            <Card variant="outlined" sx={{ bgcolor: 'background.paper', p: { xs: 2, md: 4 } }}>
-              <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                  Create Your First Monitored Target
+            {activeStep === 3 && (
+              <Stack spacing={2.5}>
+                <Typography id="onboarding-title" component="h1" sx={{ fontSize: 30, fontWeight: 800, fontStretch: '72%', lineHeight: 1.1 }}>
+                  Add your first target
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Add an endpoint or IP address to begin immediate background monitoring.
+                  Optional. Leave the host empty to skip; you can add targets any time on the Targets screen.
                 </Typography>
-
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 200px' }, gap: 2 }}>
+                  <TextField label="Name" size="small" fullWidth placeholder="e.g. Home NAS" value={targetName} onChange={(e) => { setTargetName(e.target.value); }} />
+                  <TextField select label="Check type" size="small" fullWidth value={targetType} onChange={(e) => { setTargetType(e.target.value); }}>
+                    <MenuItem value="PING">Ping (device)</MenuItem>
+                    <MenuItem value="HTTP">HTTP (website)</MenuItem>
+                  </TextField>
+                </Box>
                 <TextField
-                  label="Target Name"
+                  label={targetType === 'HTTP' ? 'URL' : 'IP address or host name'}
                   size="small"
                   fullWidth
-                  value={targetName}
-                  onChange={(e) => { setTargetName(e.target.value); }}
-                />
-
-                <TextField
-                  select
-                  label="Target Type"
-                  size="small"
-                  fullWidth
-                  value={targetType}
-                  onChange={(e) => { setTargetType(e.target.value); }}
-                >
-                  <MenuItem value="PING">PING (ICMP Protocol)</MenuItem>
-                  <MenuItem value="HTTP">HTTP(S) Web Service</MenuItem>
-                </TextField>
-
-                <TextField
-                  label={targetType === 'HTTP' ? 'URL (e.g. https://google.com)' : 'IP Address or Host (e.g. 8.8.8.8)'}
-                  size="small"
-                  fullWidth
+                  placeholder={targetType === 'HTTP' ? 'https://example.com' : '192.168.1.20'}
                   value={targetHost}
                   onChange={(e) => { setTargetHost(e.target.value); }}
                 />
-              </CardContent>
-            </Card>
-          )}
+              </Stack>
+            )}
+          </Box>
         </Box>
 
-        {/* Bottom Actions Footer */}
-        <Box sx={{ maxWidth: 900, mx: 'auto', width: '100%', mt: 4 }}>
-          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <Button
-              disabled={activeStep === 0}
-              onClick={handleBack}
-              startIcon={<ArrowBackIcon />}
-              sx={{ color: 'text.secondary' }}
-            >
-              Back
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleNext}
-              endIcon={activeStep === STEPS.length - 1 ? <CheckCircleIcon /> : <ArrowForwardIcon />}
-              sx={{ px: 4, py: 1, fontWeight: 'bold' }}
-            >
-              {activeStep === STEPS.length - 1 ? 'Finish & Launch UptimeSentry' : 'Continue'}
-            </Button>
-          </Stack>
-        </Box>
-      </DialogContent>
+        {/* Navigation */}
+        <Stack direction="row" sx={{ width: '100%', maxWidth: 760, mx: 'auto', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Button variant="text" onClick={handleBack} startIcon={<ArrowBackIcon />} sx={{ visibility: activeStep === 0 ? 'hidden' : 'visible' }}>
+            Back
+          </Button>
+          <Button variant="contained" onClick={handleNext} endIcon={last ? undefined : <ArrowForwardIcon />} sx={{ px: 3 }}>
+            {last ? (targetHost.trim() ? 'Add target and start' : 'Start monitoring') : 'Continue'}
+          </Button>
+        </Stack>
+      </Box>
     </Dialog>
   );
 }

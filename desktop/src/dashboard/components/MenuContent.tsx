@@ -1,7 +1,6 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
-import Tooltip from '@mui/material/Tooltip';
 import { navItems, secondaryNavItems, navigate } from '../nav';
 import { fonts, gray, ink, paper, signal } from '../../shared-theme/themePrimitives';
 
@@ -13,8 +12,7 @@ function RailItem(props: {
   const { item, active, badge } = props;
   const label = badge ? `${item.text}, ${badge} down` : item.text;
   return (
-    <Tooltip title={label} placement="right" disableInteractive enterDelay={600}>
-      <ButtonBase
+    <ButtonBase
         onClick={() => { navigate(item.value); }}
         aria-current={active ? 'page' : undefined}
         aria-label={label}
@@ -62,8 +60,7 @@ function RailItem(props: {
             {badge}
           </Box>
         ) : null}
-      </ButtonBase>
-    </Tooltip>
+    </ButtonBase>
   );
 }
 

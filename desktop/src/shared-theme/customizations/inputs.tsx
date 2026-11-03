@@ -106,22 +106,30 @@ export const inputsCustomizations: Components<Theme> = {
             style: {
               color: (theme.vars || theme).palette.text.primary,
               border: '1px solid',
-              borderColor: gray[200],
-              backgroundColor: alpha(gray[50], 0.3),
+              borderColor: gray[300],
+              backgroundColor: '#FFFFFF',
               '&:hover': {
                 backgroundColor: gray[100],
-                borderColor: gray[300],
+                borderColor: gray[400],
               },
               '&:active': {
                 backgroundColor: gray[200],
               },
+              '&.Mui-disabled': {
+                backgroundColor: 'transparent',
+                borderColor: gray[200],
+              },
               ...theme.applyStyles('dark', {
-                backgroundColor: gray[800],
-                borderColor: gray[700],
+                backgroundColor: gray[900],
+                borderColor: gray[600],
 
                 '&:hover': {
-                  backgroundColor: gray[900],
-                  borderColor: gray[600],
+                  backgroundColor: gray[800],
+                  borderColor: gray[500],
+                },
+                '&.Mui-disabled': {
+                  backgroundColor: 'transparent',
+                  borderColor: gray[700],
                 },
                 '&:active': {
                   backgroundColor: gray[900],
@@ -304,9 +312,7 @@ export const inputsCustomizations: Components<Theme> = {
   MuiCheckbox: {
     defaultProps: {
       disableRipple: true,
-      icon: (
-        <CheckBoxOutlineBlankRoundedIcon sx={{ color: 'hsla(210, 0%, 0%, 0.0)' }} />
-      ),
+      icon: <CheckBoxOutlineBlankRoundedIcon sx={{ color: 'transparent' }} />,
       checkedIcon: <CheckRoundedIcon sx={{ height: 14, width: 14 }} />,
       indeterminateIcon: <RemoveRoundedIcon sx={{ height: 14, width: 14 }} />,
     },
@@ -315,40 +321,30 @@ export const inputsCustomizations: Components<Theme> = {
         margin: 10,
         height: 16,
         width: 16,
-        borderRadius: 5,
-        border: '1px solid ',
-        borderColor: alpha(gray[300], 0.8),
-        boxShadow: '0 0 0 1.5px hsla(210, 0%, 0%, 0.04) inset',
-        backgroundColor: alpha(gray[100], 0.4),
-        transition: 'border-color, background-color, 120ms ease-in',
-        '&:hover': {
-          borderColor: brand[300],
-        },
-        '&.Mui-focusVisible': {
-          outline: `3px solid ${alpha(brand[500], 0.5)}`,
-          outlineOffset: '2px',
-          borderColor: brand[400],
-        },
+        borderRadius: 4,
+        border: '1px solid',
+        borderColor: gray[400],
+        backgroundColor: '#FFFFFF',
+        transition: 'border-color 120ms ease-out, background-color 120ms ease-out',
+        '&:hover': { borderColor: gray[600] },
+        '&.Mui-focusVisible': { outline: `2px solid ${alpha(ink, 0.55)}`, outlineOffset: '2px' },
         '&.Mui-checked': {
-          color: 'white',
-          backgroundColor: brand[500],
-          borderColor: brand[500],
-          boxShadow: `none`,
-          '&:hover': {
-            backgroundColor: brand[600],
-          },
+          color: '#FFFFFF',
+          backgroundColor: ink,
+          borderColor: ink,
+          '&:hover': { backgroundColor: gray[700] },
         },
+        '&.Mui-disabled': { opacity: 0.5 },
         ...theme.applyStyles('dark', {
-          borderColor: alpha(gray[700], 0.8),
-          boxShadow: '0 0 0 1.5px hsl(210, 0%, 0%) inset',
-          backgroundColor: alpha(gray[900], 0.8),
-          '&:hover': {
-            borderColor: brand[300],
-          },
-          '&.Mui-focusVisible': {
-            borderColor: brand[400],
-            outline: `3px solid ${alpha(brand[500], 0.5)}`,
-            outlineOffset: '2px',
+          borderColor: gray[500],
+          backgroundColor: gray[900],
+          '&:hover': { borderColor: gray[300] },
+          '&.Mui-focusVisible': { outline: `2px solid ${alpha(paper, 0.6)}` },
+          '&.Mui-checked': {
+            color: ink,
+            backgroundColor: paper,
+            borderColor: paper,
+            '&:hover': { backgroundColor: gray[300] },
           },
         }),
       }),
@@ -441,6 +437,75 @@ export const inputsCustomizations: Components<Theme> = {
         typography: theme.typography.caption,
         marginBottom: 8,
       }),
+    },
+  },
+  // Labels sit above their field as a static block. The template hides the outline notch that MUI's
+  // floating label sits in, so a floating label would be squeezed into the field's top border.
+  MuiInputLabel: {
+    defaultProps: { shrink: true },
+    styleOverrides: {
+      root: ({ theme }) => ({
+        '&&': {
+          position: 'relative',
+          transform: 'none',
+          maxWidth: '100%',
+          whiteSpace: 'normal',
+          overflow: 'visible',
+          marginBottom: 6,
+          fontSize: 12.5,
+          fontWeight: 600,
+          lineHeight: 1.35,
+          color: (theme.vars || theme).palette.text.secondary,
+        },
+        '&&.Mui-focused': { color: (theme.vars || theme).palette.text.primary },
+        '&&.Mui-error': { color: (theme.vars || theme).palette.error.main },
+        '&&.Mui-disabled': { opacity: 0.6 },
+      }),
+    },
+  },
+  // Autocomplete arrows/clear buttons: centred, borderless (the template boxes every IconButton).
+  MuiAutocomplete: {
+    styleOverrides: {
+      endAdornment: {
+        top: '50%',
+        transform: 'translateY(-50%)',
+        right: 8,
+        display: 'flex',
+        alignItems: 'center',
+      },
+      // '&&' outranks the template's IconButton styles, including its dark-scheme fill.
+      popupIndicator: ({ theme }) => ({
+        '&&': {
+          border: 'none',
+          backgroundColor: 'transparent',
+          boxShadow: 'none',
+          width: 28,
+          height: 28,
+          padding: 2,
+          color: (theme.vars || theme).palette.text.secondary,
+        },
+        '&&:hover': { backgroundColor: (theme.vars || theme).palette.action.hover },
+      }),
+      clearIndicator: {
+        '&&': {
+          border: 'none',
+          backgroundColor: 'transparent',
+          boxShadow: 'none',
+          width: 28,
+          height: 28,
+          padding: 2,
+        },
+      },
+      paper: ({ theme }) => ({
+        marginTop: 4,
+        border: `1px solid ${(theme.vars || theme).palette.divider}`,
+        boxShadow: 'var(--template-palette-baseShadow)',
+      }),
+    },
+  },
+  MuiFormHelperText: {
+    styleOverrides: {
+      root: { marginLeft: 0, marginRight: 0, marginTop: 6, fontSize: 12, lineHeight: 1.4 },
     },
   },
 };
