@@ -28,7 +28,7 @@ import {
   formatPct, formatSpan, fromDateInput, toDateInput, windowStats, BACKEND_HISTORY_LIMIT,
 } from '../historyStats';
 
-const APP_VERSION = 'v0.4.1';
+const APP_VERSION = 'v0.4.2';
 const mono = { fontFamily: fonts.mono, fontVariantNumeric: 'tabular-nums' } as const;
 
 interface Target {

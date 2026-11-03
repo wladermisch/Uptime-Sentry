@@ -9,7 +9,7 @@ import BrandMark from './BrandMark';
 import { fonts, ink, paper, signal } from '../../shared-theme/themePrimitives';
 import { API } from '../historyStats';
 
-const APP_VERSION = 'v0.4.1';
+const APP_VERSION = 'v0.4.2';
 const REPO = 'https://github.com/wladermisch/Uptime-Sentry';
 
 const mono = { fontFamily: fonts.mono, fontVariantNumeric: 'tabular-nums' } as const;

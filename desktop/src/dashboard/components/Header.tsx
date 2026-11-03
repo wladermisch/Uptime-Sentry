@@ -43,7 +43,7 @@ export default function Header({ activeTab }: { activeTab: string }) {
     try {
       const items: NotificationItem[] = [];
       const latestTag = localStorage.getItem('uptime_sentry_latest_release');
-      if (latestTag && latestTag !== 'v0.4.1') {
+      if (latestTag && latestTag !== 'v0.4.2') {
         items.push({
           id: 'update-notice',
           title: 'Update available',
