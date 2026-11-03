@@ -45,7 +45,11 @@ interface ReleaseInfo {
 /** Reads the fields we need from GitHub's release JSON, checking their types instead of trusting the payload. */
 function parseRelease(json: unknown): ReleaseInfo | null {
   if (typeof json !== 'object' || json === null) return null;
-  const { tag_name: tag, html_url: page, assets } = json as { tag_name?: unknown; html_url?: unknown; assets?: unknown };
+  // Read fields by key from a Map: the values are plain strings/arrays (validated below), not markup.
+  const fields = new Map<string, unknown>(Object.entries(json));
+  const tag = fields.get('tag_name');
+  const page = fields.get('html_url');
+  const assets = fields.get('assets');
   if (typeof tag !== 'string') return null;
   const exe = Array.isArray(assets)
     ? (assets as { name?: unknown; browser_download_url?: unknown }[]).find((a) => typeof a.name === 'string' && a.name.endsWith('.exe'))
