@@ -1,0 +1,116 @@
+import * as React from 'react';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import { fonts, gray, ink, paper } from '../../shared-theme/themePrimitives';
+
+const ISSUES_URL = 'https://github.com/wladermisch/Uptime-Sentry/issues';
+
+type LogState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; lines: string[] };
+
+export default function FeedbackTab() {
+  const [logs, setLogs] = React.useState<LogState>({ kind: 'loading' });
+  const [copied, setCopied] = React.useState(false);
+
+  const fetchLogs = React.useCallback(async () => {
+    setLogs({ kind: 'loading' });
+    try {
+      const r = await fetch('http://127.0.0.1:8765/api/logs');
+      if (!r.ok) throw new Error(String(r.status));
+      setLogs({ kind: 'ready', lines: (await r.json()) as string[] });
+    } catch {
+      setLogs({ kind: 'error' });
+    }
+  }, []);
+
+  React.useEffect(() => { void fetchLogs(); }, [fetchLogs]);
+
+  const handleCopy = async () => {
+    if (logs.kind !== 'ready') return;
+    try {
+      await navigator.clipboard.writeText(logs.lines.join('\n'));
+      setCopied(true);
+      setTimeout(() => { setCopied(false); }, 2000);
+    } catch {
+      // Clipboard unavailable: leave the button as it was.
+    }
+  };
+
+  const lines = logs.kind === 'ready' ? logs.lines : [];
+
+  return (
+    <Box sx={{ width: '100%', maxWidth: 1100 }}>
+      <Typography component="h2" sx={{ fontSize: 30, fontWeight: 800, fontStretch: '72%', lineHeight: 1.1 }}>
+        Report a problem
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: '70ch', lineHeight: 1.6 }}>
+        Copy the recent log below and paste it into a new GitHub issue together with what you were doing. It contains target names and
+        hosts, so remove anything you don't want to share.
+      </Typography>
+
+      <Stack direction="row" spacing={1} sx={{ mt: 3, mb: 1.5, alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ mr: 'auto' }}>
+          Service log{logs.kind === 'ready' ? ` · ${lines.length} lines` : ''}
+        </Typography>
+        <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={() => { void fetchLogs(); }}>
+          Refresh
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={copied ? <CheckRoundedIcon /> : <ContentCopyIcon />}
+          onClick={() => { void handleCopy(); }}
+          disabled={lines.length === 0}
+        >
+          {copied ? 'Copied' : 'Copy log'}
+        </Button>
+        <Button size="small" variant="contained" startIcon={<OpenInNewIcon />} onClick={() => { window.open(ISSUES_URL, '_blank'); }}>
+          Open GitHub issues
+        </Button>
+      </Stack>
+
+      <Box
+        role="log"
+        aria-label="Service log"
+        tabIndex={0}
+        sx={{
+          backgroundColor: ink,
+          color: paper,
+          border: '1px solid',
+          borderColor: gray[800],
+          borderRadius: 1.5,
+          p: 2,
+          height: 'clamp(240px, calc(100vh - 340px), 640px)',
+          overflow: 'auto',
+          fontFamily: fonts.mono,
+          fontSize: 12.5,
+          lineHeight: 1.6,
+          '&:focus-visible': { outline: `2px solid ${gray[400]}`, outlineOffset: 2 },
+          '& ::selection': { backgroundColor: paper, color: ink },
+        }}
+      >
+        {logs.kind === 'loading' && <Box sx={{ color: gray[400] }}>Loading log…</Box>}
+        {logs.kind === 'error' && (
+          <Box sx={{ color: gray[300] }}>Can't reach the monitoring service at 127.0.0.1:8765, so the log is unavailable.</Box>
+        )}
+        {logs.kind === 'ready' && lines.length === 0 && <Box sx={{ color: gray[400] }}>The log is empty.</Box>}
+        {lines.map((line, idx) => {
+          const level = /\[(ERROR|WARN(?:ING)?)\]/.exec(line)?.[1];
+          return (
+            <Box key={idx} sx={{ display: 'grid', gridTemplateColumns: '3.5em 1fr', gap: 2 }}>
+              <Box component="span" sx={{ color: gray[500], textAlign: 'right', userSelect: 'none' }}>{idx + 1}</Box>
+              <Box component="span" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', color: level ? (level === 'ERROR' ? '#FF8F89' : '#F7CD6B') : paper }}>
+                {line}
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+}

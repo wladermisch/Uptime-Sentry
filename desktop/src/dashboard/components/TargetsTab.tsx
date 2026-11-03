@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { fonts, signal } from '../../shared-theme/themePrimitives';
 import { nextTargetId } from '../targetIds';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -11,20 +12,15 @@ import MenuItem from '@mui/material/MenuItem';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
-import Tooltip from '@mui/material/Tooltip';
-import HelpIcon from '@mui/icons-material/Help';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import SaveIcon from '@mui/icons-material/Save';
-import InputAdornment from '@mui/material/InputAdornment';
 import CircularProgress from '@mui/material/CircularProgress';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Autocomplete from '@mui/material/Autocomplete';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import PauseCircleIcon from '@mui/icons-material/PauseCircle';
-import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 
 interface Profile {
   id: string;
@@ -214,7 +210,7 @@ export default function TargetsTab() {
           message: 'Local verification daemon returned an error code.',
         });
       }
-    } catch (e) {
+    } catch {
       setDryRunResult({
         status: 'OFFLINE',
         responseTime: 0,
@@ -562,10 +558,10 @@ export default function TargetsTab() {
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={paused}
-                        onChange={(e) => { setPaused(e.target.checked); }}
-                        color="warning"
+                        checked={!paused}
+                        onChange={(e) => { setPaused(!e.target.checked); }}
                         size="small"
+                        slotProps={{ input: { 'aria-label': 'Monitor this target' } }}
                       />
                     }
                     label={paused ? 'Paused' : 'Active'}
@@ -753,61 +749,47 @@ export default function TargetsTab() {
                   placeholder="e.g. C:\scripts\restart_apache.bat"
                 />
 
-                {/* Status Box */}
-                <Box
-                  sx={{
-                    p: 2,
-                    borderRadius: 1.5,
-                    border: '1px solid',
-                    borderColor: dryRunResult
-                      ? dryRunResult.status === 'ONLINE'
-                        ? 'success.main'
-                        : dryRunResult.status === 'DEGRADED'
-                        ? 'warning.main'
-                        : 'error.main'
-                      : 'divider',
-                    bgcolor: dryRunResult
-                      ? dryRunResult.status === 'ONLINE'
-                        ? 'rgba(76, 175, 80, 0.12)'
-                        : dryRunResult.status === 'DEGRADED'
-                        ? 'rgba(255, 152, 0, 0.12)'
-                        : 'rgba(244, 67, 54, 0.12)'
-                      : 'action.hover',
-                    transition: 'all 0.3s ease',
-                  }}
-                >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                    Current Status:
+                {/* Live test of the values in the form */}
+                <Box sx={{ p: 2, borderRadius: 1.5, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.default' }} aria-live="polite">
+                  <Typography variant="overline" color="text.secondary" sx={{ display: 'block' }}>
+                    Live test
                   </Typography>
                   {checking ? (
-                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                      <CircularProgress size={16} />
-                      <Typography variant="body2" color="text.secondary">
-                        Checking target response...
-                      </Typography>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 0.5 }}>
+                      <CircularProgress size={14} />
+                      <Typography variant="body2" color="text.secondary">Checking {host || 'target'}…</Typography>
                     </Stack>
                   ) : dryRunResult ? (
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        fontWeight: 'bold',
-                        color:
-                          dryRunResult.status === 'ONLINE'
-                            ? 'success.main'
-                            : dryRunResult.status === 'DEGRADED'
-                            ? 'warning.main'
-                            : 'error.main',
-                      }}
-                    >
-                      {dryRunResult.status === 'ONLINE'
-                        ? `Online, ${dryRunResult.responseTime}ms Response time.`
-                        : dryRunResult.status === 'DEGRADED'
-                        ? `Degraded (${dryRunResult.responseTime}ms Response time). ${dryRunResult.message}`
-                        : `Offline. ${dryRunResult.message}`}
-                    </Typography>
+                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mt: 0.5, flexWrap: 'wrap', rowGap: 1 }}>
+                      <Box
+                        component="span"
+                        sx={{
+                          fontFamily: fonts.mono,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          letterSpacing: '0.06em',
+                          lineHeight: '22px',
+                          px: 1,
+                          borderRadius: '3px',
+                          ...(dryRunResult.status === 'OFFLINE'
+                            ? { backgroundColor: signal.down, color: '#FFFFFF' }
+                            : { border: '1px solid', borderColor: 'divider', color: dryRunResult.status === 'DEGRADED' ? 'warning.main' : 'text.primary' }),
+                        }}
+                      >
+                        {dryRunResult.status === 'ONLINE' ? 'UP' : dryRunResult.status === 'DEGRADED' ? 'DEGRADED' : 'DOWN'}
+                      </Box>
+                      {dryRunResult.status !== 'OFFLINE' && (
+                        <Box component="span" sx={{ fontFamily: fonts.mono, fontSize: 13, fontWeight: 600 }}>
+                          {dryRunResult.responseTime} ms
+                        </Box>
+                      )}
+                      <Typography variant="body2" color="text.secondary" sx={{ fontFamily: fonts.mono, fontSize: 13, overflowWrap: 'anywhere' }}>
+                        {dryRunResult.message}
+                      </Typography>
+                    </Stack>
                   ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      Checking status...
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      Enter a host to test it.
                     </Typography>
                   )}
                 </Box>

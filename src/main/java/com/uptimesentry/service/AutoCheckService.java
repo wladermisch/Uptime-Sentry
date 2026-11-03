@@ -42,6 +42,15 @@ public class AutoCheckService {
         this.intervalSeconds = Math.max(1, intervalSeconds); //If Interval is set to less than 1, we default to 1 second to avoid issues with scheduling tasks at 0 or negative intervals.
     }
 
+    /** Whether the scheduler is currently running checks. */
+    public boolean isRunning() {
+        return running;
+    }
+
+    public int getIntervalSeconds() {
+        return intervalSeconds;
+    }
+
     public synchronized void startAutoChecks() { // We synchronize start and stop
         if (running) return;
         SentryLogger.info("Auto-checks started. Interval: " + intervalSeconds + " seconds.", true);

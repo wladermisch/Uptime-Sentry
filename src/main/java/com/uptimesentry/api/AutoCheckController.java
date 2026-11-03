@@ -9,27 +9,28 @@ import java.util.Map;
 public class AutoCheckController {
 
     private final AutoCheckService autoCheckService;
-    private volatile boolean running = false;
-    private volatile int intervalSeconds = 60;
 
     public AutoCheckController(AutoCheckService autoCheckService) {
         this.autoCheckService = autoCheckService;
     }
 
+    /** Reports the service's real state; ApiServer starts auto-checks at boot, so this is "running" from the start. */
+    private Map<String, Object> status() {
+        return Map.of("running", autoCheckService.isRunning(), "intervalSeconds", autoCheckService.getIntervalSeconds());
+    }
+
     public void getStatus(Context ctx) {
-        ctx.json(Map.of("running", running, "intervalSeconds", intervalSeconds));
+        ctx.json(status());
     }
 
     public void start(Context ctx) {
         autoCheckService.startAutoChecks();
-        running = true;
-        ctx.json(Map.of("running", true, "intervalSeconds", intervalSeconds));
+        ctx.json(status());
     }
 
     public void stop(Context ctx) {
         autoCheckService.stopAutoChecks();
-        running = false;
-        ctx.json(Map.of("running", false, "intervalSeconds", intervalSeconds));
+        ctx.json(status());
     }
 
     public void setInterval(Context ctx) {
@@ -40,9 +41,8 @@ public class AutoCheckController {
             if (val == null) { ctx.status(400).result("intervalSeconds required"); return; }
             int secs = ((Number) val).intValue();
             if (secs < 1) { ctx.status(400).result("intervalSeconds must be >= 1"); return; }
-            intervalSeconds = secs;
             autoCheckService.setIntervalSeconds(secs);
-            ctx.json(Map.of("running", running, "intervalSeconds", intervalSeconds));
+            ctx.json(status());
         } catch (Exception e) { ctx.status(400).result("Invalid body: " + e.getMessage()); }
     }
 }
