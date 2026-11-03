@@ -56,3 +56,8 @@ targets.json.example
 release.py
 release.bat
 UptimeSentry_Installer.iss
+
+# Local dev run scripts and their data
+dev.bat
+dev.ps1
+.dev-data/
