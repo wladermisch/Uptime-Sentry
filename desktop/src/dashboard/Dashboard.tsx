@@ -43,7 +43,7 @@ interface Target {
 // ── Dashboard Component ───────────────────────────────────────────────────────
 
 import OnboardingModal from './components/OnboardingModal';
-import { migrateTargetIds } from './targetIds';
+import { dropDuplicateTargets, migrateTargetIds } from './targetIds';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = React.useState('home');
@@ -81,8 +81,9 @@ export default function Dashboard() {
     //    Renumber them once so they can sync and be checked.
     try {
       const stored = JSON.parse(localStorage.getItem('uptime_sentry_targets') || '[]') as Target[];
-      const { targets: fixed, changed } = migrateTargetIds(stored);
-      if (changed) localStorage.setItem('uptime_sentry_targets', JSON.stringify(fixed));
+      const migrated = migrateTargetIds(stored);
+      const deduped = dropDuplicateTargets(migrated.targets);
+      if (migrated.changed || deduped.changed) localStorage.setItem('uptime_sentry_targets', JSON.stringify(deduped.targets));
     } catch (e) {
       console.error('Failed to migrate target ids', e);
     }
