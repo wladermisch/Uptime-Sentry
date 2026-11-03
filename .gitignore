@@ -61,3 +61,5 @@ UptimeSentry_Installer.iss
 dev.bat
 dev.ps1
 .dev-data/
+
+PRODUCT.md
