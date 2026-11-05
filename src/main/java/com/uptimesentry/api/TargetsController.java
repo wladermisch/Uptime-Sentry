@@ -194,8 +194,9 @@ public class TargetsController {
         try { online = monitor.checkAvailability(); } catch (Exception e) { online = false; }
         long responseTime = monitor.getResponseTime();
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        CheckResult result = new CheckResult(target.getId(), target.getName(), timestamp, online, responseTime,
-            online ? "Manual check succeeded." : "Manual check failed.");
+        String detail = monitor.getLastMessage();
+        CheckResult result = CheckResult.of(target, timestamp, online, responseTime,
+            detail != null && !detail.isBlank() ? detail : (online ? "Manual check succeeded." : "Manual check failed."));
         HistoryRepository.addResult(result);
         ctx.json(result);
     }

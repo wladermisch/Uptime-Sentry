@@ -11,6 +11,10 @@ html, body, #root {
 
 body {
   margin: 0;
+  /* A desktop app: clicking labels and buttons shouldn't highlight text. Fields and the
+     content people copy (logs, reports, email previews) opt back in below. */
+  -webkit-user-select: none;
+  user-select: none;
   font-family: "Archivo Variable", "Segoe UI", system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
   background: #E6E8EB;
@@ -64,4 +68,9 @@ a {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+input, textarea, [contenteditable="true"], .selectable, .selectable * {
+  -webkit-user-select: text;
+  user-select: text;
 }

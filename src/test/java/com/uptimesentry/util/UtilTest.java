@@ -28,7 +28,7 @@ import static com.uptimesentry.util.InputValidator.validateUrl;
 public class UtilTest {
 
     private static final List<MonitoredTarget> targets = new ArrayList<>();
-    private static final java.nio.file.Path filePath = java.nio.file.Paths.get("targets.json");
+    private static final java.nio.file.Path filePath = java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"), "uptimesentry-test-targets.json");
 
     @BeforeAll
     static void setUpBeforeClass() {

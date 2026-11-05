@@ -29,6 +29,10 @@ export interface CheckResult {
   success: boolean;
   durationMillis: number;
   message: string;
+  /** Copied from the target when the check ran (missing on checks recorded before v0.5). */
+  targetType?: string;
+  host?: string;
+  profileName?: string;
 }
 
 export type TargetState = 'down' | 'up' | 'pending';

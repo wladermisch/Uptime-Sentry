@@ -71,6 +71,13 @@ fn find_java_exe() -> PathBuf {
 
 /// Launch the Java API server as a background subprocess.
 fn launch_java(state: &AppState) {
+    // A backend is already serving (e.g. started by dev.ps1 with its own data folder): use it
+    // instead of starting a second one that would fail to bind the port.
+    if TcpStream::connect(("127.0.0.1", 8765_u16)).is_ok() {
+        println!("[UptimeSentry] A backend is already running on port 8765; using it.");
+        return;
+    }
+
     let jar = match find_jar() {
         Some(p) => p,
         None => {

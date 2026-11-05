@@ -8,6 +8,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import BrandMark from './BrandMark';
 import { fonts, ink, paper, signal } from '../../shared-theme/themePrimitives';
 import { API } from '../historyStats';
+import { Pass, PassSection } from './workspace';
 
 const APP_VERSION = 'v0.4.2';
 const REPO = 'https://github.com/wladermisch/Uptime-Sentry';
@@ -60,7 +61,7 @@ function parseRelease(json: unknown): ReleaseInfo | null {
 /** One labelled row of the status sheet. */
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '220px 1fr' }, gap: { xs: 0.5, sm: 2 }, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', alignItems: 'center' }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '200px 1fr' }, gap: { xs: 0.5, sm: 2 }, px: 3, py: 1.5, borderTop: '1px solid', borderColor: 'divider', alignItems: 'center' }}>
       <Typography variant="body2" color="text.secondary">{label}</Typography>
       <Box sx={{ minWidth: 0 }}>{children}</Box>
     </Box>
@@ -124,9 +125,9 @@ export default function AboutTab() {
   }, []);
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 880 }}>
+    <Pass aria-label="About Uptime Sentry" maxWidth={760}>
       {/* Identity */}
-      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 4 }}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', px: 3, pt: 3, pb: 2.5 }}>
         <Box sx={(theme) => ({ color: ink, '--brandmark-ink': paper, display: 'flex', ...theme.applyStyles('dark', { color: paper, '--brandmark-ink': ink }) })}>
           <BrandMark size={56} />
         </Box>
@@ -139,8 +140,8 @@ export default function AboutTab() {
       </Stack>
 
       {/* Status sheet */}
-      <Typography variant="overline" color="text.secondary">Status</Typography>
-      <Box sx={{ borderTop: '1px solid', borderColor: 'divider', mb: 4 }}>
+      <PassSection label="Status">
+      <Box sx={{ mx: -3, mb: -2.5 }}>
         <Row label="Monitoring service">
           {status === null ? <CircularProgress size={14} /> : (
             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
@@ -182,10 +183,10 @@ export default function AboutTab() {
           </Stack>
         </Row>
       </Box>
+      </PassSection>
 
       {/* Credits */}
-      <Typography variant="overline" color="text.secondary">Credits</Typography>
-      <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+      <PassSection label="Credits">
         <Typography variant="body2">
           Free and open source, made by <strong>Wlad Ermisch</strong>.
         </Typography>
@@ -197,7 +198,7 @@ export default function AboutTab() {
             Support on Ko-fi
           </Button>
         </Stack>
-      </Box>
-    </Box>
+      </PassSection>
+    </Pass>
   );
 }

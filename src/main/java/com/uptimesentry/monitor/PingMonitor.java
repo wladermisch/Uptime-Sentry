@@ -11,6 +11,7 @@ public class PingMonitor implements Monitorable {
     
     private final MonitoredTarget target;
     private long lastResponseTime;
+    private String lastMessage;
     
     /**
      * Constructor for creating a PingMonitor.
@@ -38,11 +39,18 @@ public class PingMonitor implements Monitorable {
             boolean reachable = com.uptimesentry.util.NetworkUtil.ping(host, timeout);
             long endTime = System.currentTimeMillis();
             this.lastResponseTime = reachable ? (endTime - startTime) : -1;
+            this.lastMessage = reachable ? "Reply in " + (endTime - startTime) + " ms" : "No reply within " + timeout + " s";
             return reachable;
         } catch (Exception e) {
             this.lastResponseTime = -1;
+            this.lastMessage = "Ping failed: " + e.getMessage();
             return false;
         }
+    }
+
+    @Override
+    public String getLastMessage() {
+        return lastMessage;
     }
 
     @Override

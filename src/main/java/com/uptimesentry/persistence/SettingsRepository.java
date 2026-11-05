@@ -7,16 +7,39 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonParseException;
 
 public class SettingsRepository {
     private static final Path SETTINGS_FILE = Paths.get("settings.json");
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public static class AppSettings {
         public float volume = 0.8f;
         public boolean playSoundAlert = true;
+        /** Tray notifications when a target goes down or recovers. */
+        public boolean desktopNotifications = true;
+        /** Check results older than this many days are deleted. */
+        public int historyRetentionDays = 30;
+
+        // Outgoing mail server used for outage emails.
+        public String smtpHost = "";
+        public int smtpPort = 587;
+        /** STARTTLS, SSL or NONE. */
+        public String smtpSecurity = "STARTTLS";
+        public String smtpUsername = "";
+        public String smtpPassword = "";
+        public String smtpFrom = "";
+        public String smtpFromName = "Uptime Sentry";
+
+        public AppSettings copy() {
+            return GSON.fromJson(GSON.toJson(this), AppSettings.class);
+        }
     }
 
     private static AppSettings cachedSettings = null;
+
+    private SettingsRepository() {
+    }
 
     public static synchronized AppSettings loadSettings() {
         if (cachedSettings != null) {
@@ -29,13 +52,12 @@ public class SettingsRepository {
         }
         try {
             String json = Files.readString(SETTINGS_FILE);
-            Gson gson = new Gson();
-            cachedSettings = gson.fromJson(json, AppSettings.class);
+            cachedSettings = GSON.fromJson(json, AppSettings.class);
             if (cachedSettings == null) {
                 cachedSettings = new AppSettings();
             }
             return cachedSettings;
-        } catch (IOException e) {
+        } catch (IOException | JsonParseException e) {
             cachedSettings = new AppSettings();
             return cachedSettings;
         }
@@ -44,9 +66,7 @@ public class SettingsRepository {
     public static synchronized void saveSettings(AppSettings settings) {
         cachedSettings = settings;
         try {
-            Gson gson = new GsonBuilder().setPrettyPrinting().create();
-            String json = gson.toJson(settings);
-            Files.writeString(SETTINGS_FILE, json, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.writeString(SETTINGS_FILE, GSON.toJson(settings), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException e) {
             System.err.println("Failed to save settings: " + e.getMessage());
         }

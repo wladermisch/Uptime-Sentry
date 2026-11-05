@@ -51,6 +51,9 @@ public class NotificationService {
         }
 
         String soundName = "up".equals(type) ? target.getUpSound() : target.getDownSound();
+        if ("no-sound".equals(soundName)) {
+            return; // The user chose silence for this target or profile.
+        }
         if (soundName == null || soundName.trim().isEmpty()) {
             soundName = "up".equals(type) ? "Up-Default.wav" : "Down-Default.wav";
         }
@@ -76,6 +79,9 @@ public class NotificationService {
     }
     // Helper method to send a notification. If trayIcon is available, it uses that, otherwise it falls back to printing to the console.
     private void sendNotification(String title, String message, TrayIcon.MessageType messageType) {
+        if (!com.uptimesentry.persistence.SettingsRepository.loadSettings().desktopNotifications) {
+            return;
+        }
         if (trayIcon != null) {
             trayIcon.displayMessage(title, message, messageType);
             return;

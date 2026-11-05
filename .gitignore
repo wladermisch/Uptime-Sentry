@@ -38,6 +38,13 @@ logs/
 
 # Local project files
 history.json
+history.jsonl
+history.jsonl.tmp
+history.json.migrated
+# Monitoring service settings (can contain the SMTP password)
+/settings.json
+# Sounds people add in the app (stored next to the service data)
+/audio/
 config-local.json
 plan.md
 

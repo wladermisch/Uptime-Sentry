@@ -44,6 +44,11 @@ interface Target {
 
 import OnboardingModal from './components/OnboardingModal';
 import { dropDuplicateTargets, migrateTargetIds } from './targetIds';
+import { syncTargetsToBackend } from './backendSync';
+import { gray } from '../shared-theme/themePrimitives';
+
+/** Screens that lay out their own columns edge to edge, like Home's board and pass. */
+const FULL_BLEED_TABS = new Set(['home', 'profiles', 'targets', 'analytics', 'reports']);
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = React.useState('home');
@@ -89,42 +94,9 @@ export default function Dashboard() {
     }
   }, []);
 
-  const syncTargetsToBackend = React.useCallback(async (allTargets: Target[], allProfiles: Profile[], activeId: string) => {
-    const activeTargets = allTargets.filter(
-      (t) => t.profileId === activeId || allProfiles.find((p) => p.id === t.profileId)?.backgroundRunning
-    );
-
-    try {
-      await fetch('http://127.0.0.1:8765/api/targets', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          activeTargets.map((t, idx) => ({
-            id: t.id || idx + 1,
-            name: t.name,
-            type: t.type,
-            host: t.host,
-            timeout: t.timeout,
-            recoveryAction: t.recoveryAction,
-            acceptableStatusCodes: t.acceptableStatusCodes,
-            consecutiveFailuresLimit: t.consecutiveFailuresLimit,
-            profileName: t.profileName
-          }))
-        ),
-      });
-    } catch (e) {
-      console.error('Failed to sync targets to Java backend:', e);
-    }
-  }, []);
-
   const triggerSync = React.useCallback(() => {
-    const storedProfiles = localStorage.getItem('uptime_sentry_profiles');
-    const storedTargets = localStorage.getItem('uptime_sentry_targets');
-    const activeId = localStorage.getItem('uptime_sentry_active_id');
-    if (storedProfiles && storedTargets && activeId) {
-      void syncTargetsToBackend(JSON.parse(storedTargets), JSON.parse(storedProfiles), activeId);
-    }
-  }, [syncTargetsToBackend]);
+    void syncTargetsToBackend();
+  }, []);
 
   React.useEffect(() => {
     seedDefaults();
@@ -172,13 +144,22 @@ export default function Dashboard() {
         <SideMenu />
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'background.default' }}>
           <Header activeTab={activeTab} />
-          {activeTab === 'home' ? (
+          {FULL_BLEED_TABS.has(activeTab) ? (
             <Box component="main" sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
-              <MainGrid />
+              {renderContent()}
             </Box>
           ) : (
-            <Box component="main" sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-              <Stack spacing={2} sx={{ alignItems: 'center', mx: 3, py: 3 }}>
+            <Box
+              component="main"
+              sx={(theme) => ({
+                flex: 1,
+                minHeight: 0,
+                overflow: 'auto',
+                backgroundColor: gray[200],
+                ...theme.applyStyles('dark', { backgroundColor: gray[900] }),
+              })}
+            >
+              <Stack sx={{ alignItems: 'center' }}>
                 {renderContent()}
               </Stack>
             </Box>

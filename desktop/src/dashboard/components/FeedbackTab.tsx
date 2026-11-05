@@ -9,6 +9,7 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { fonts, gray, ink, paper } from '../../shared-theme/themePrimitives';
 import { API } from '../historyStats';
+import { Pass, PassHead, PassSection } from './workspace';
 
 const ISSUES_URL = 'https://github.com/wladermisch/Uptime-Sentry/issues';
 
@@ -53,19 +54,14 @@ export default function FeedbackTab() {
   const lines = logs.kind === 'ready' ? logs.lines : [];
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 1100 }}>
-      <Typography component="h2" sx={{ fontSize: 30, fontWeight: 800, fontStretch: '72%', lineHeight: 1.1 }}>
-        Report a problem
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: '70ch', lineHeight: 1.6 }}>
-        Copy the recent log below and paste it into a new GitHub issue together with what you were doing. It contains target names and
-        hosts, so remove anything you don't want to share.
-      </Typography>
+    <Pass aria-label="Report a problem" maxWidth={1100}>
+      <PassHead
+        title="Report a problem"
+        description="Copy the recent log below and paste it into a new GitHub issue together with what you were doing. It contains target names and hosts, so remove anything you don't want to share."
+      />
 
-      <Stack direction="row" spacing={1} sx={{ mt: 3, mb: 1.5, alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}>
-        <Typography variant="overline" color="text.secondary" sx={{ mr: 'auto' }}>
-          Service log{logs.kind === 'ready' ? ` · ${lines.length} lines` : ''}
-        </Typography>
+      <PassSection label={`Service log${logs.kind === 'ready' ? ` · ${lines.length} lines` : ''}`}>
+      <Stack direction="row" spacing={1} sx={{ mb: 1.5, alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}>
         <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={() => { void fetchLogs(); }}>
           Refresh
         </Button>
@@ -85,6 +81,7 @@ export default function FeedbackTab() {
 
       <Box
         role="log"
+        className="selectable"
         aria-label="Service log"
         tabIndex={0}
         sx={{
@@ -94,7 +91,7 @@ export default function FeedbackTab() {
           borderColor: gray[800],
           borderRadius: 1.5,
           p: 2,
-          height: 'clamp(240px, calc(100vh - 340px), 640px)',
+          height: 'clamp(240px, calc(100vh - 380px), 640px)',
           overflow: 'auto',
           fontFamily: fonts.mono,
           fontSize: 12.5,
@@ -120,6 +117,7 @@ export default function FeedbackTab() {
           );
         })}
       </Box>
-    </Box>
+      </PassSection>
+    </Pass>
   );
 }

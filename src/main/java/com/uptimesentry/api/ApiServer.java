@@ -47,6 +47,7 @@ public class ApiServer {
         AutoCheckController autoCheckCtrl = new AutoCheckController(autoCheckService);
         AudioController audioCtrl = new AudioController();
         SettingsController settingsCtrl = new SettingsController();
+        EmailController emailCtrl = new EmailController();
 
         app.get("/api/targets",             targetsCtrl::getAll);
         app.post("/api/targets",            targetsCtrl::add);
@@ -58,7 +59,10 @@ public class ApiServer {
         app.post("/api/check/test",           targetsCtrl::checkDryRun);
 
         app.get("/api/history",             historyCtrl::getHistory);
+        app.get("/api/history/stats",       historyCtrl::getStats);
         app.delete("/api/history",          historyCtrl::clearHistory);
+
+        app.post("/api/email/test",         emailCtrl::sendTest);
 
         app.get("/api/autocheck/status",    autoCheckCtrl::getStatus);
         app.post("/api/autocheck/start",    autoCheckCtrl::start);
@@ -67,6 +71,7 @@ public class ApiServer {
         app.get("/api/audio/list",          audioCtrl::listSounds);
         app.get("/api/audio/stream",        audioCtrl::streamSound);
         app.post("/api/audio/play",         audioCtrl::playSound);
+        app.post("/api/audio/upload",       audioCtrl::uploadSound);
 
         app.get("/api/settings",            settingsCtrl::getSettings);
         app.put("/api/settings",            settingsCtrl::updateSettings);

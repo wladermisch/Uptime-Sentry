@@ -1,24 +1,18 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import List from '@mui/material/List';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
-import Tooltip from '@mui/material/Tooltip';
-import HelpIcon from '@mui/icons-material/Help';
-import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import SaveIcon from '@mui/icons-material/Save';
-import InputAdornment from '@mui/material/InputAdornment';
-import Stack from '@mui/material/Stack';
-import Autocomplete from '@mui/material/Autocomplete';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import {
+  FieldGrid, IndexEmpty, IndexFilter, IndexHeader, IndexList, IndexRow, Pass, PassFooter, PassHead, PassSection, Tag, Workspace,
+} from './workspace';
+import { EmailRule, INHERIT_RULE, describeEmail, readAppEmailSettings, resolveEmail } from '../emailAlerts';
+import { EmailRuleEditor } from './EmailAlertFields';
+import { Gate, useAppCapabilities } from './AppGate';
+import { AddSoundButton, SoundSelect, useSoundLibrary } from './SoundPicker';
 
 interface Profile {
   id: string;
@@ -29,17 +23,15 @@ interface Profile {
   backgroundRunning: boolean;
   upSound?: string;
   downSound?: string;
+  email?: EmailRule;
 }
-
-const FALLBACK_UP = ["default-app", "no-sound", "Up-Default.wav", "Up2.wav", "Up3.wav", "Notification Modern.wav", "Notification1.wav", "Notification2.wav"];
-const FALLBACK_DOWN = ["default-app", "no-sound", "Down-Default.wav", "Down Modern.wav", "Down-2.wav", "Down3.wav", "Critical-Alert.wav", "Error.wav", "Notification Modern.wav", "Notification Warning.wav", "Notification1.wav", "Notification2.wav"];
 
 export default function ProfilesTab() {
   const [profiles, setProfiles] = React.useState<Profile[]>([]);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [upSoundsList, setUpSoundsList] = React.useState<string[]>(FALLBACK_UP);
-  const [downSoundsList, setDownSoundsList] = React.useState<string[]>(FALLBACK_DOWN);
+  const sounds = useSoundLibrary();
+  const caps = useAppCapabilities();
 
   // Form State
   const [name, setName] = React.useState('');
@@ -49,8 +41,9 @@ export default function ProfilesTab() {
   const [bgRunning, setBgRunning] = React.useState(false);
   const [upSound, setUpSound] = React.useState('default-app');
   const [downSound, setDownSound] = React.useState('default-app');
-
-  const previewTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [email, setEmail] = React.useState<EmailRule>(INHERIT_RULE);
+  // Re-read when Settings is saved, so the summary matches what applies now.
+  const appEmail = React.useMemo(() => readAppEmailSettings(), [caps.emailOn, caps.emailReady]);
 
   const loadProfiles = React.useCallback(() => {
     const stored = localStorage.getItem('uptime_sentry_profiles');
@@ -73,22 +66,6 @@ export default function ProfilesTab() {
   React.useEffect(() => {
     loadProfiles();
     
-    // Fetch sound options
-    fetch('http://127.0.0.1:8765/api/audio/list')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.up) setUpSoundsList(["default-app", ...data.up]);
-        if (data.down) setDownSoundsList(["default-app", ...data.down]);
-      })
-      .catch((e) => { console.warn('Could not load sound files list from API:', e); });
-
-    const handleSearch = (e: Event) => {
-      setSearchQuery((e as CustomEvent).detail || '');
-    };
-    window.addEventListener('search-query', handleSearch);
-    return () => {
-      window.removeEventListener('search-query', handleSearch);
-    };
   }, [loadProfiles]);
 
   const fillForm = (p: Profile) => {
@@ -99,6 +76,7 @@ export default function ProfilesTab() {
     setBgRunning(p.backgroundRunning);
     setUpSound(p.upSound || 'default-app');
     setDownSound(p.downSound || 'default-app');
+    setEmail(p.email ?? INHERIT_RULE);
   };
 
   const saveProfilesToStorage = (updated: Profile[]) => {
@@ -106,22 +84,6 @@ export default function ProfilesTab() {
     setProfiles(updated);
     window.dispatchEvent(new CustomEvent('profiles-updated'));
   };
-
-  const playPreview = React.useCallback((soundName: string, type: 'up' | 'down') => {
-    if (soundName === 'default-app') return;
-    if (previewTimer.current) {
-      clearTimeout(previewTimer.current);
-    }
-    previewTimer.current = setTimeout(() => {
-      try {
-        const audio = new Audio(`http://127.0.0.1:8765/api/audio/stream?type=${type}&file=${encodeURIComponent(soundName)}`);
-        audio.volume = 0.8;
-        audio.play().catch((err) => { console.error('Audio preview failed:', err); });
-      } catch (e) {
-        console.error('Audio play error:', e);
-      }
-    }, 500);
-  }, []);
 
   const handleSelectProfile = (p: Profile) => {
     setSelectedId(p.id);
@@ -137,6 +99,7 @@ export default function ProfilesTab() {
     setBgRunning(false);
     setUpSound('default-app');
     setDownSound('default-app');
+    setEmail(INHERIT_RULE);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -156,6 +119,7 @@ export default function ProfilesTab() {
               backgroundRunning: bgRunning,
               upSound,
               downSound,
+              email,
             }
           : p
       );
@@ -172,6 +136,7 @@ export default function ProfilesTab() {
         backgroundRunning: bgRunning,
         upSound,
         downSound,
+        email,
       };
       const updated = [...profiles, newProfile];
       saveProfilesToStorage(updated);
@@ -232,244 +197,172 @@ export default function ProfilesTab() {
     (p) => p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // How many targets each profile holds, for the index meta line.
+  const targetCounts = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    try {
+      const stored = JSON.parse(localStorage.getItem('uptime_sentry_targets') || '[]') as { profileId?: string }[];
+      stored.forEach((t) => { if (t.profileId) counts.set(t.profileId, (counts.get(t.profileId) ?? 0) + 1); });
+    } catch {
+      // Unreadable storage: show no counts.
+    }
+    return counts;
+  }, [profiles]);
+
+  const activeId = localStorage.getItem('uptime_sentry_active_id');
+  const isNew = selectedId === 'temp-new-profile';
+  const selectedCount = selectedId ? targetCounts.get(selectedId) ?? 0 : 0;
+
   return (
-    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, userSelect: 'none' }}>
-      <Grid container spacing={3}>
-        {/* Left Side: Sub-sidebar Frameless List */}
-        <Grid size={{ xs: 12, md: 3.2 }}>
-          <Box sx={{ borderRight: '1px solid', borderColor: 'divider', height: '100%', pr: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
-                Profiles
-              </Typography>
-              <Button size="small" variant="text" startIcon={<AddIcon />} onClick={handleNewProfileClick} sx={{ minWidth: 'auto', py: 0.2 }}>
-                New
+    <Workspace
+      index={
+        <>
+          <IndexHeader title="Profiles" count={profiles.length} action={{ label: 'New', icon: <AddIcon />, onClick: handleNewProfileClick }} />
+          {profiles.length > 4 && <IndexFilter value={searchQuery} onChange={setSearchQuery} placeholder="Filter profiles" />}
+          <IndexList label="Profiles">
+            {filteredProfiles.map((p, i) => {
+              const count = targetCounts.get(p.id) ?? 0;
+              return (
+                <IndexRow
+                  key={p.id}
+                  n={i + 1}
+                  selected={selectedId === p.id}
+                  onSelect={() => { handleSelectProfile(p); }}
+                  title={p.name}
+                  badge={p.id === activeId ? <Tag solid>ACTIVE</Tag> : p.backgroundRunning ? <Tag>BACKGROUND</Tag> : undefined}
+                  meta={p.id === 'temp-new-profile' ? 'not saved yet' : `${count} ${count === 1 ? 'target' : 'targets'} · every ${p.checkInterval} s`}
+                />
+              );
+            })}
+            {filteredProfiles.length === 0 && <IndexEmpty>No profile matches “{searchQuery}”.</IndexEmpty>}
+          </IndexList>
+        </>
+      }
+    >
+      <Pass component="form" onSubmit={handleSave} aria-label={isNew ? 'New profile' : `${name} profile`} maxWidth={760}>
+        <PassHead
+          title={isNew ? 'New profile' : name || 'Untitled profile'}
+          description={isNew ? 'Group targets that are checked together, e.g. “Home network” or “Client sites”.' : undefined}
+          meta={
+            isNew ? undefined : (
+              <>
+                {selectedId === activeId && <Tag solid>ACTIVE</Tag>}
+                <span>{selectedCount} {selectedCount === 1 ? 'target' : 'targets'} · every {interval} s · timeout {timeout} s</span>
+              </>
+            )
+          }
+          actions={
+            !isNew && selectedId ? (
+              <Button variant="outlined" size="small" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => { handleDelete(selectedId); }}>
+                Delete
               </Button>
-            </Box>
-            {/* List Wrapper to prevent item expansion */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', flexGrow: 1, overflowY: 'auto' }}>
-              <List dense sx={{ p: 0, width: '100%' }}>
-                {filteredProfiles.map((p) => (
-                  <ListItemButton
-                    key={p.id}
-                    selected={selectedId === p.id}
-                    onClick={() => { handleSelectProfile(p); }}
-                    sx={{
-                      width: '100%',
-                      flexGrow: 0,
-                      flexShrink: 0,
-                      alignSelf: 'flex-start',
-                      borderRadius: 1,
-                      mb: 0.5,
-                      py: 0.4,
-                      px: 1.5,
-                      minHeight: 36,
-                      '&.Mui-selected': {
-                        bgcolor: 'action.selected',
-                        fontWeight: 'bold',
-                      }
-                    }}
-                  >
-                    <ListItemText
-                      primary={
-                        <Typography variant="body2" sx={{ fontWeight: selectedId === p.id ? 'bold' : 'medium', fontSize: '0.84rem', lineHeight: 1.2 }}>
-                          {p.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.72rem', lineHeight: 1.1 }}>
-                          {p.checkInterval}s interval
-                        </Typography>
-                      }
-                    />
-                  </ListItemButton>
-                ))}
-                {filteredProfiles.length === 0 && (
-                  <Box sx={{ p: 2, textAlign: 'center', width: '100%' }}>
-                    <Typography variant="caption" color="text.secondary">
-                      No profiles found
-                    </Typography>
-                  </Box>
-                )}
-              </List>
-            </Box>
-          </Box>
-        </Grid>
+            ) : undefined
+          }
+        />
 
-        {/* Right Side: Detail Pane */}
-        <Grid size={{ xs: 12, md: 8.8 }}>
-          <Card variant="outlined">
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                  {selectedId === 'temp-new-profile' ? 'Create New Profile' : `Profile Settings: ${name}`}
-                </Typography>
-                {selectedId && selectedId !== 'temp-new-profile' && (
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    size="small"
-                    startIcon={<DeleteIcon />}
-                    onClick={() => { handleDelete(selectedId); }}
-                  >
-                    Delete Profile
-                  </Button>
-                )}
+        <PassSection label="Name">
+          <TextField
+            label="Profile name"
+            size="small"
+            fullWidth
+            required
+            value={name}
+            onChange={(e) => { setName(e.target.value); }}
+            helperText="Shown in the profile switcher in the header."
+          />
+        </PassSection>
+
+        <PassSection label="Checks" hint="Defaults for every target in this profile. A target can override the timeout and failure threshold.">
+          <FieldGrid columns={3}>
+            <TextField
+              label="Check every (s)"
+              type="number"
+              size="small"
+              fullWidth
+              required
+              value={interval}
+              onChange={(e) => { setIntervalVal(Number(e.target.value)); }}
+              slotProps={{ htmlInput: { min: 5 } }}
+            />
+            <TextField
+              label="Timeout (s)"
+              type="number"
+              size="small"
+              fullWidth
+              required
+              value={timeout}
+              onChange={(e) => { setTimeoutVal(Number(e.target.value)); }}
+              slotProps={{ htmlInput: { min: 1 } }}
+            />
+            <TextField
+              label="Alert after failures"
+              type="number"
+              size="small"
+              fullWidth
+              required
+              value={failuresLimit}
+              onChange={(e) => { setFailuresLimit(Number(e.target.value)); }}
+              slotProps={{ htmlInput: { min: 1 } }}
+            />
+          </FieldGrid>
+          <FormControlLabel
+            sx={{ mt: 2, ml: -0.75, alignItems: 'flex-start' }}
+            control={<Checkbox checked={bgRunning} onChange={(e) => { setBgRunning(e.target.checked); }} sx={{ mt: -0.5 }} />}
+            label={
+              <Box>
+                <Box sx={{ fontSize: 14 }}>Keep checking in the background</Box>
+                <Box sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.25 }}>Its targets are still checked while another profile is active.</Box>
               </Box>
+            }
+          />
+        </PassSection>
 
-              <Box component="form" onSubmit={handleSave} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <TextField
-                  label="Profile Name"
-                  size="small"
-                  fullWidth
-                  required
-                  value={name}
-                  onChange={(e) => { setName(e.target.value); }}
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <Tooltip title="Give the profile a name representing its target services. e.g. Streaming Services, Home Dev.">
-                            <HelpIcon sx={{ fontSize: '1.2rem', color: 'text.secondary', cursor: 'help' }} />
-                          </Tooltip>
-                        </InputAdornment>
-                      ),
-                    }
-                  }}
-                />
+        <PassSection label="Sounds" hint="Played when one of this profile's targets goes down or recovers." aside={<AddSoundButton />}>
+          <Gate ready={caps.soundsOn} reason='Sounds are switched off. Turn on "Play a sound" in Settings to choose them here.'>
+            <FieldGrid>
+              <SoundSelect
+                type="up"
+                label="When a target recovers"
+                value={upSound}
+                onChange={setUpSound}
+                inherit={{ value: 'default-app', label: 'App default (from Settings)' }}
+                library={sounds}
+              />
+              <SoundSelect
+                type="down"
+                label="When a target goes down"
+                value={downSound}
+                onChange={setDownSound}
+                inherit={{ value: 'default-app', label: 'App default (from Settings)' }}
+                library={sounds}
+              />
+            </FieldGrid>
+          </Gate>
+        </PassSection>
 
-                <TextField
-                  label="Check Interval (seconds)"
-                  type="number"
-                  size="small"
-                  fullWidth
-                  required
-                  value={interval}
-                  onChange={(e) => { setIntervalVal(Number(e.target.value)); }}
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <Tooltip title="The time interval between sequential background availability checks.">
-                            <HelpIcon sx={{ fontSize: '1.2rem', color: 'text.secondary', cursor: 'help' }} />
-                          </Tooltip>
-                        </InputAdornment>
-                      ),
-                    }
-                  }}
-                />
+        <PassSection label="Email alerts" hint="Who gets an email when one of this profile's targets goes down. A target can still choose its own.">
+          <Gate ready={caps.emailReady || caps.loading} reason={caps.emailBlocker}>
+            <EmailRuleEditor
+              value={email}
+              onChange={setEmail}
+              inheritLabel="App default"
+              inheritSummary={describeEmail(resolveEmail(undefined, undefined, appEmail), appEmail)}
+              inheritedTemplate={appEmail.emailTemplate}
+              inheritedRecipients={appEmail.emailRecipients}
+              appEnabled={appEmail.emailAlertsEnabled}
+            />
+          </Gate>
+        </PassSection>
 
-                <TextField
-                  label="Connection Timeout (seconds)"
-                  type="number"
-                  size="small"
-                  fullWidth
-                  required
-                  value={timeout}
-                  onChange={(e) => { setTimeoutVal(Number(e.target.value)); }}
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <Tooltip title="How long Uptime Sentry will wait for a response before declaring a target offline.">
-                            <HelpIcon sx={{ fontSize: '1.2rem', color: 'text.secondary', cursor: 'help' }} />
-                          </Tooltip>
-                        </InputAdornment>
-                      ),
-                    }
-                  }}
-                />
-
-                <TextField
-                  label="Consecutive Failure Alert Threshold"
-                  type="number"
-                  size="small"
-                  fullWidth
-                  required
-                  value={failuresLimit}
-                  onChange={(e) => { setFailuresLimit(Number(e.target.value)); }}
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <Tooltip title="Number of consecutive failed check checks before triggering a system alert.">
-                            <HelpIcon sx={{ fontSize: '1.2rem', color: 'text.secondary', cursor: 'help' }} />
-                          </Tooltip>
-                        </InputAdornment>
-                      ),
-                    }
-                  }}
-                />
-
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Autocomplete
-                      disableClearable
-                      options={upSoundsList}
-                      value={upSound}
-                      onChange={(_e, val) => {
-                        if (val) {
-                          setUpSound(val);
-                          playPreview(val, 'up');
-                        }
-                      }}
-                      sx={{
-                        userSelect: 'none'
-                      }}
-                      renderInput={(params) => (
-                        <TextField {...params} label="Default Up Sound (Recovery)" size="small" />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Autocomplete
-                      disableClearable
-                      options={downSoundsList}
-                      value={downSound}
-                      onChange={(_e, val) => {
-                        if (val) {
-                          setDownSound(val);
-                          playPreview(val, 'down');
-                        }
-                      }}
-                      sx={{
-                        userSelect: 'none'
-                      }}
-                      renderInput={(params) => (
-                        <TextField {...params} label="Default Down Sound (Outage)" size="small" />
-                      )}
-                    />
-                  </Grid>
-                </Grid>
-
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={bgRunning}
-                      onChange={(e) => { setBgRunning(e.target.checked); }}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
-                      <span>Continue running checks in background when inactive</span>
-                      <Tooltip title="If checked, Uptime Sentry continues checking this profile's targets in the background even if you switch to a different active profile.">
-                        <HelpIcon sx={{ fontSize: '1.1rem', color: 'text.secondary', cursor: 'help' }} />
-                      </Tooltip>
-                    </Stack>
-                  }
-                />
-
-                <Box sx={{ mt: 1 }}>
-                  <Button type="submit" variant="contained" startIcon={<SaveIcon />}>
-                    {selectedId === 'temp-new-profile' ? 'Create Profile' : 'Save Profile'}
-                  </Button>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Box>
+        <PassFooter>
+          <Button type="submit" variant="contained" size="small" disabled={!name.trim()}>
+            {isNew ? 'Create profile' : 'Save profile'}
+          </Button>
+          {isNew && profiles.length > 0 && (
+            <Button variant="text" size="small" onClick={() => { handleDelete('temp-new-profile'); }}>Cancel</Button>
+          )}
+        </PassFooter>
+      </Pass>
+    </Workspace>
   );
 }

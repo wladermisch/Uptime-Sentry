@@ -14,6 +14,7 @@ public class HttpMonitor implements Monitorable {
     
     private final MonitoredTarget target;
     private long lastResponseTime;
+    private String lastMessage;
     
     /**
      * Constructor for creating an HttpMonitor.
@@ -55,8 +56,10 @@ public class HttpMonitor implements Monitorable {
             }
 
             if (!codeAcceptable) {
+                lastMessage = "HTTP " + responseCode + " (not an accepted status)";
                 return false;
             }
+            lastMessage = "HTTP " + responseCode;
 
             // Keyword content matching check
             String rule = target.getKeywordRule();
@@ -69,15 +72,18 @@ public class HttpMonitor implements Monitorable {
                         String body = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
                         if ("MUST_CONTAIN".equalsIgnoreCase(rule)) {
                             if (!body.contains(kw)) {
+                                lastMessage = "HTTP " + responseCode + ", but the page doesn't contain \"" + kw + "\"";
                                 return false;
                             }
                         } else if ("MUST_NOT_CONTAIN".equalsIgnoreCase(rule)) {
                             if (body.contains(kw)) {
+                                lastMessage = "HTTP " + responseCode + ", but the page contains \"" + kw + "\"";
                                 return false;
                             }
                         }
                     }
                 } catch (Exception kwEx) {
+                    lastMessage = "Couldn't read the page: " + describe(kwEx, timeout);
                     return false;
                 }
             }
@@ -87,8 +93,25 @@ public class HttpMonitor implements Monitorable {
         } catch (Exception e) {
             // Error connecting, timeout, bad URL format, etc.
             this.lastResponseTime = -1; // Indicate failure
+            this.lastMessage = describe(e, timeout);
             return false;
         }
+    }
+
+    /** Turns a connection exception into a short reason a person can act on. */
+    static String describe(Exception e, int timeoutSeconds) {
+        if (e instanceof java.net.SocketTimeoutException) return "No response within " + timeoutSeconds + " s";
+        if (e instanceof java.net.UnknownHostException) return "Host not found (DNS): " + e.getMessage();
+        if (e instanceof java.net.ConnectException) return "Connection refused";
+        if (e instanceof javax.net.ssl.SSLException) return "TLS/certificate error: " + e.getMessage();
+        if (e instanceof java.net.MalformedURLException) return "Invalid URL";
+        String msg = e.getMessage();
+        return msg == null || msg.isBlank() ? e.getClass().getSimpleName() : msg;
+    }
+
+    @Override
+    public String getLastMessage() {
+        return lastMessage;
     }
     
 

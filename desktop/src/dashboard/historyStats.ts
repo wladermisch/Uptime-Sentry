@@ -9,8 +9,22 @@ export type { CheckResult } from './home/boardModel';
 
 export const API = 'http://127.0.0.1:8765';
 
-export async function fetchHistory(): Promise<CheckResult[]> {
-  const r = await fetch(`${API}/api/history`);
+/** "yyyy-mm-dd hh:mm:ss" in local time, the format the monitoring service stores. */
+export function toTs(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+/**
+ * Recorded checks, newest first. Without a range the service returns the last 7 days;
+ * pass `since` for longer periods (bounded by the history retention in Settings).
+ */
+export async function fetchHistory(range?: { since?: Date; until?: Date; targetId?: number }): Promise<CheckResult[]> {
+  const q = new URLSearchParams();
+  if (range?.since) q.set('since', toTs(range.since));
+  if (range?.until) q.set('until', toTs(range.until));
+  if (range?.targetId !== undefined) q.set('targetId', String(range.targetId));
+  const r = await fetch(`${API}/api/history${q.size ? `?${q.toString()}` : ''}`);
   if (!r.ok) throw new Error(`History request failed (${r.status})`);
   return (await r.json()) as CheckResult[];
 }
@@ -154,5 +168,4 @@ export function fromDateInput(v: string, edge: 'start' | 'end'): Date | null {
   return d;
 }
 
-/** The backend keeps this many check results in total (HistoryRepository.MAX_HISTORY_ENTRIES). */
-export const BACKEND_HISTORY_LIMIT = 200;
+

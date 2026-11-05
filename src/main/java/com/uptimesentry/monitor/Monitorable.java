@@ -37,4 +37,12 @@ public interface Monitorable {
      * This could be: printing an alert, running a system command, or executing a script.
      */
     void executeRecovery();
+
+    /**
+     * A short, human-readable outcome of the last check, e.g. "HTTP 503" or "No reply within 5 s".
+     * Used in check history and outage emails.
+     */
+    default String getLastMessage() {
+        return null;
+    }
 }

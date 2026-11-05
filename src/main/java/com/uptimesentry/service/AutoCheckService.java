@@ -27,6 +27,8 @@ public class AutoCheckService {
     private final NotificationService notificationService;
     private final Map<Integer, Boolean> lastStatusById = new ConcurrentHashMap<>(); // Map to track last known status of each target by ID, used to detect changes and notify only on state changes.
     private final Map<Integer, Integer> consecutiveFailuresById = new ConcurrentHashMap<>(); // Track consecutive check failures for retry thresholds.
+    private final Map<Integer, String> firstFailureById = new ConcurrentHashMap<>(); // Timestamp of the first failed check in the current run.
+    private final EmailService emailService = new EmailService();
 
     private ScheduledExecutorService scheduler; // We keep a reference to the scheduler to be able to shut it down when stopping auto-checks.
     private ScheduledFuture<?> scheduledTask; // We keep a reference to the scheduled task to be able to cancel it when stopping auto-checks.
@@ -109,14 +111,9 @@ public class AutoCheckService {
 
             // Record check result in history
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-            CheckResult result = new CheckResult(
-                target.getId(),
-                target.getName(),
-                timestamp,
-                online,
-                responseTime,
-                online ? "Auto check succeeded." : "Auto check failed."
-            );
+            String detail = monitor.getLastMessage();
+            String message = detail != null && !detail.isBlank() ? detail : (online ? "Auto check succeeded." : "Auto check failed.");
+            CheckResult result = CheckResult.of(target, timestamp, online, responseTime, message);
             HistoryRepository.addResult(result);
 
             int targetId = target.getId();
@@ -125,6 +122,7 @@ public class AutoCheckService {
 
             if (online) {
                 consecutiveFailuresById.put(targetId, 0); // Reset count
+                String downSince = firstFailureById.remove(targetId);
                 if (prevOnline == null) {
                     SentryLogger.info("Target " + target.getName() + " initial state: ONLINE");
                     lastStatusById.put(targetId, true);
@@ -132,18 +130,24 @@ public class AutoCheckService {
                     if (notificationService != null) {
                         notificationService.notifyRecovery(target);
                     }
+                    emailService.sendRecovery(target, new EmailService.Outage(
+                        downSince != null ? downSince : "unknown", timestamp, millisBetween(downSince, timestamp), 0, message, responseTime));
                     SentryLogger.info("Target recovered: " + target.getName() + " is back online.");
                     lastStatusById.put(targetId, true);
                 }
             } else {
                 int consecutiveFailures = consecutiveFailuresById.getOrDefault(targetId, 0) + 1;
                 consecutiveFailuresById.put(targetId, consecutiveFailures);
+                firstFailureById.putIfAbsent(targetId, timestamp);
+                EmailService.Outage outage = new EmailService.Outage(firstFailureById.get(targetId), timestamp,
+                    millisBetween(firstFailureById.get(targetId), timestamp), consecutiveFailures, message, responseTime);
 
                 if (prevOnline == null) {
                     if (consecutiveFailures >= limit) {
                         if (notificationService != null) {
                             notificationService.notifyFailure(target);
                         }
+                        emailService.sendDown(target, outage);
                         SentryLogger.warn("Target " + target.getName() + " initial state: OFFLINE (alert triggered)");
                         try {
                             monitor.executeRecovery();
@@ -159,6 +163,7 @@ public class AutoCheckService {
                         if (notificationService != null) {
                             notificationService.notifyFailure(target);
                         }
+                        emailService.sendDown(target, outage);
                         SentryLogger.warn("Target went offline: " + target.getName() + " (alert triggered)");
                         try {
                             monitor.executeRecovery();
@@ -174,6 +179,16 @@ public class AutoCheckService {
                     SentryLogger.warn("Target " + target.getName() + " is still offline. Consecutive failures: " + consecutiveFailures);
                 }
             }
+        }
+    }
+
+    private static long millisBetween(String from, String to) {
+        if (from == null || to == null) return 0;
+        try {
+            DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            return java.time.Duration.between(LocalDateTime.parse(from, f), LocalDateTime.parse(to, f)).toMillis();
+        } catch (RuntimeException e) {
+            return 0;
         }
     }
 }

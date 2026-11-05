@@ -26,6 +26,15 @@ public class MonitoredTarget {
     private int degradedLatencyThreshold = 1500; // in ms
     private boolean paused = false;
 
+    // Outage email, already resolved by the desktop app from the target, its profile and the app settings.
+    // No recipients means no email. Empty templates fall back to EmailService's defaults.
+    private List<String> emailRecipients;
+    private String emailDownSubject;
+    private String emailDownBody;
+    private boolean emailOnRecovery = true;
+    private String emailUpSubject;
+    private String emailUpBody;
+
     /**
      * No-argument constructor so Jackson can deserialize targets sent by the desktop app
      * (PUT /api/targets, POST /api/targets). Fields are filled through the setters.
@@ -189,6 +198,54 @@ public class MonitoredTarget {
 
     public void setPaused(boolean paused) {
         this.paused = paused;
+    }
+
+    public List<String> getEmailRecipients() {
+        return emailRecipients;
+    }
+
+    public void setEmailRecipients(List<String> emailRecipients) {
+        this.emailRecipients = emailRecipients;
+    }
+
+    public String getEmailDownSubject() {
+        return emailDownSubject;
+    }
+
+    public void setEmailDownSubject(String emailDownSubject) {
+        this.emailDownSubject = emailDownSubject;
+    }
+
+    public String getEmailDownBody() {
+        return emailDownBody;
+    }
+
+    public void setEmailDownBody(String emailDownBody) {
+        this.emailDownBody = emailDownBody;
+    }
+
+    public boolean isEmailOnRecovery() {
+        return emailOnRecovery;
+    }
+
+    public void setEmailOnRecovery(boolean emailOnRecovery) {
+        this.emailOnRecovery = emailOnRecovery;
+    }
+
+    public String getEmailUpSubject() {
+        return emailUpSubject;
+    }
+
+    public void setEmailUpSubject(String emailUpSubject) {
+        this.emailUpSubject = emailUpSubject;
+    }
+
+    public String getEmailUpBody() {
+        return emailUpBody;
+    }
+
+    public void setEmailUpBody(String emailUpBody) {
+        this.emailUpBody = emailUpBody;
     }
 
     // Provide a toString() method for easy logging and debugging

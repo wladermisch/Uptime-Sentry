@@ -1,26 +1,24 @@
 import * as React from 'react';
-import { fonts, signal } from '../../shared-theme/themePrimitives';
+import { ink, signal } from '../../shared-theme/themePrimitives';
 import { nextTargetId } from '../targetIds';
+import { navigate } from '../nav';
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
-import List from '@mui/material/List';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
-import DeleteIcon from '@mui/icons-material/Delete';
-import AddIcon from '@mui/icons-material/Add';
-import SaveIcon from '@mui/icons-material/Save';
 import CircularProgress from '@mui/material/CircularProgress';
-import Chip from '@mui/material/Chip';
-import Stack from '@mui/material/Stack';
-import Autocomplete from '@mui/material/Autocomplete';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import {
+  FieldGrid, IndexEmpty, IndexFilter, IndexHeader, IndexList, IndexRow, Pass, PassFooter, PassHead, PassSection, Tag, Workspace, mono,
+} from './workspace';
+import { EmailRule, INHERIT_RULE, describeEmail, readAppEmailSettings, resolveEmail } from '../emailAlerts';
+import { requestSync } from '../backendSync';
+import { EmailRuleEditor } from './EmailAlertFields';
+import { Gate, useAppCapabilities } from './AppGate';
+import { AddSoundButton, SoundSelect, useSoundLibrary } from './SoundPicker';
 
 interface Profile {
   id: string;
@@ -31,6 +29,7 @@ interface Profile {
   backgroundRunning: boolean;
   upSound?: string;
   downSound?: string;
+  email?: EmailRule;
 }
 
 interface Target {
@@ -51,18 +50,16 @@ interface Target {
   keyword?: string;
   keywordRule?: string; // MUST_CONTAIN, MUST_NOT_CONTAIN, DISABLED
   paused?: boolean;
+  email?: EmailRule;
 }
-
-const FALLBACK_UP = ["default-profile", "no-sound", "Up-Default.wav", "Up2.wav", "Up3.wav", "Notification Modern.wav", "Notification1.wav", "Notification2.wav"];
-const FALLBACK_DOWN = ["default-profile", "no-sound", "Down-Default.wav", "Down Modern.wav", "Down-2.wav", "Down3.wav", "Critical-Alert.wav", "Error.wav", "Notification Modern.wav", "Notification Warning.wav", "Notification1.wav", "Notification2.wav"];
 
 export default function TargetsTab() {
   const [activeProfile, setActiveProfile] = React.useState<Profile | null>(null);
   const [targets, setTargets] = React.useState<Target[]>([]);
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [upSoundsList, setUpSoundsList] = React.useState<string[]>(FALLBACK_UP);
-  const [downSoundsList, setDownSoundsList] = React.useState<string[]>(FALLBACK_DOWN);
+  const sounds = useSoundLibrary();
+  const caps = useAppCapabilities();
 
   // Form State
   const [name, setName] = React.useState('');
@@ -79,6 +76,9 @@ export default function TargetsTab() {
   const [keyword, setKeyword] = React.useState('');
   const [keywordRule, setKeywordRule] = React.useState('DISABLED');
   const [paused, setPaused] = React.useState(false);
+  const [email, setEmail] = React.useState<EmailRule>(INHERIT_RULE);
+  // Re-read when Settings is saved, so the summary matches what applies now.
+  const appEmail = React.useMemo(() => readAppEmailSettings(), [caps.emailOn, caps.emailReady]);
 
   // Live Dry Check State
   const [checking, setChecking] = React.useState(false);
@@ -88,90 +88,9 @@ export default function TargetsTab() {
     message: string;
   } | null>(null);
 
-  const previewTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const syncTargetsToBackend = async (allTargets: Target[], activeId: string) => {
-    let profilesList: Profile[] = [];
-    try {
-      const stored = localStorage.getItem('uptime_sentry_profiles');
-      if (stored) profilesList = JSON.parse(stored);
-    } catch {}
-
-    let appSettings = { defaultUpSound: 'Up-Default.wav', defaultDownSound: 'Down-Default.wav' };
-    try {
-      const storedSet = localStorage.getItem('uptime_sentry_settings');
-      if (storedSet) appSettings = { ...appSettings, ...JSON.parse(storedSet) };
-    } catch {}
-
-    const activeProfileObj = profilesList.find((p) => p.id === activeId);
-    const activeTargets = allTargets.filter((t) => t.profileId === activeId);
-
-    const payload = activeTargets.map((t) => {
-      let resolvedUpSound = t.upSound;
-      if (!resolvedUpSound || resolvedUpSound === 'default-profile') {
-        resolvedUpSound = activeProfileObj?.upSound || 'default-app';
-      }
-      if (!resolvedUpSound || resolvedUpSound === 'default-app') {
-        resolvedUpSound = appSettings.defaultUpSound;
-      }
-
-      let resolvedDownSound = t.downSound;
-      if (!resolvedDownSound || resolvedDownSound === 'default-profile') {
-        resolvedDownSound = activeProfileObj?.downSound || 'default-app';
-      }
-      if (!resolvedDownSound || resolvedDownSound === 'default-app') {
-        resolvedDownSound = appSettings.defaultDownSound;
-      }
-
-      return {
-        id: t.id,
-        name: t.name,
-        type: t.type,
-        host: t.host,
-        timeout: t.timeout,
-        recoveryAction: t.recoveryAction,
-        acceptableStatusCodes: t.acceptableStatusCodes,
-        degradedStatusCodes: t.degradedStatusCodes,
-        degradedLatencyThreshold: t.degradedLatencyThreshold,
-        consecutiveFailuresLimit: t.consecutiveFailuresLimit,
-        profileName: activeProfileObj?.name || 'Default Profile',
-        upSound: resolvedUpSound,
-        downSound: resolvedDownSound,
-        keyword: t.keyword,
-        keywordRule: t.keywordRule,
-        paused: t.paused,
-      };
-    });
-
-    try {
-      await fetch('http://127.0.0.1:8765/api/targets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    } catch (e) {
-      console.error('Failed to sync targets to Java backend:', e);
-    }
-  };
-
-  const playPreview = React.useCallback((soundName: string, soundType: 'up' | 'down') => {
-    if (soundName === 'default-profile' || soundName === 'no-sound') return;
-    if (previewTimer.current) {
-      clearTimeout(previewTimer.current);
-    }
-    previewTimer.current = setTimeout(() => {
-      try {
-        const audio = new Audio(`http://127.0.0.1:8765/api/audio/stream?type=${soundType}&file=${encodeURIComponent(soundName)}`);
-        audio.volume = 0.8;
-        audio.play().catch((err) => { console.error('Audio preview failed:', err); });
-      } catch (e) {
-        console.error('Audio play error:', e);
-      }
-    }, 500);
-  }, []);
-
   const runLiveTest = React.useCallback(async (targetHost: string, targetType: string, timeLimit: number, statusCodes: string) => {
-    if (!targetHost.trim()) {
+    // Nothing to test until a host is typed (a new target starts with just "https://").
+    if (!targetHost.trim() || /^https?:\/\/$/i.test(targetHost.trim())) {
       setDryRunResult(null);
       return;
     }
@@ -236,6 +155,7 @@ export default function TargetsTab() {
     setKeyword(t.keyword || '');
     setKeywordRule(t.keywordRule || 'DISABLED');
     setPaused(!!t.paused);
+    setEmail(t.email ?? INHERIT_RULE);
 
     void runLiveTest(t.host, t.type, t.timeout, t.acceptableStatusCodes?.join(', ') || '200');
   };
@@ -275,27 +195,14 @@ export default function TargetsTab() {
   React.useEffect(() => {
     loadActiveProfileAndTargets();
 
-    fetch('http://127.0.0.1:8765/api/audio/list')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.up) setUpSoundsList(["default-profile", "no-sound", ...data.up]);
-        if (data.down) setDownSoundsList(["default-profile", "no-sound", ...data.down]);
-      })
-      .catch((e) => { console.warn('Could not load sound files list from API:', e); });
-
     const handleProfile = () => { loadActiveProfileAndTargets(); };
-    const handleSearch = (e: Event) => {
-      setSearchQuery((e as CustomEvent).detail || '');
-    };
 
     window.addEventListener('profile-changed', handleProfile);
     window.addEventListener('profiles-updated', handleProfile);
-    window.addEventListener('search-query', handleSearch);
 
     return () => {
       window.removeEventListener('profile-changed', handleProfile);
       window.removeEventListener('profiles-updated', handleProfile);
-      window.removeEventListener('search-query', handleSearch);
     };
   }, [loadActiveProfileAndTargets]);
 
@@ -334,6 +241,7 @@ export default function TargetsTab() {
     setKeyword('');
     setKeywordRule('DISABLED');
     setPaused(false);
+    setEmail(INHERIT_RULE);
     setDryRunResult(null);
   };
 
@@ -373,6 +281,7 @@ export default function TargetsTab() {
               keyword,
               keywordRule,
               paused,
+              email,
             }
           : t
       );
@@ -396,6 +305,7 @@ export default function TargetsTab() {
         keyword,
         keywordRule,
         paused,
+        email,
       };
       updatedTargets = [...targets, newTarget];
       setSelectedId(newTarget.id!);
@@ -405,7 +315,7 @@ export default function TargetsTab() {
     setTargets(updatedTargets);
 
     // Sync to backend
-    void syncTargetsToBackend(updatedTargets, activeProfile.id);
+    requestSync();
   };
 
   const handleDelete = (id: number) => {
@@ -426,7 +336,7 @@ export default function TargetsTab() {
     setTargets(updated);
 
     // Sync to backend
-    void syncTargetsToBackend(updated, activeProfile.id);
+    requestSync();
 
     const currentProfileTargets = updated.filter((t) => t.profileId === activeProfile.id);
     if (currentProfileTargets.length > 0) {
@@ -470,340 +380,306 @@ export default function TargetsTab() {
 
   if (!activeProfile) {
     return (
-      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
-        <Typography variant="body1" color="text.secondary">
-          No active profile selected. Please select or create a profile in the Profiles tab first.
-        </Typography>
-      </Box>
+      <Workspace index={<><IndexHeader title="Targets" /><IndexEmpty>No profile is active.</IndexEmpty></>}>
+        <Pass maxWidth={560}>
+          <PassHead title="No active profile" description="Targets belong to a profile. Pick one in the header, or create one first." />
+          <PassFooter>
+            <Button variant="contained" size="small" onClick={() => { navigate('profiles'); }}>Open profiles</Button>
+          </PassFooter>
+        </Pass>
+      </Workspace>
     );
   }
 
+  const isNew = selectedId === -1;
+  const profileTargetCount = targets.filter((t) => t.profileId === activeProfile.id).length;
+  const testTone = dryRunResult?.status === 'OFFLINE' ? 'down' : dryRunResult?.status === 'DEGRADED' ? 'degraded' : 'up';
+
   return (
-    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, userSelect: 'none' }}>
-      <Grid container spacing={3}>
-        {/* Left Side: Sub-sidebar Frameless Compact List */}
-        <Grid size={{ xs: 12, md: 3.2 }}>
-          <Box sx={{ borderRight: '1px solid', borderColor: 'divider', height: '100%', pr: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
-                Targets
-              </Typography>
-              <Button size="small" variant="text" startIcon={<AddIcon />} onClick={handleNewTargetClick} sx={{ minWidth: 'auto', py: 0.2 }}>
-                Add
-              </Button>
-            </Box>
-
-            {/* List Wrapper to prevent item expansion */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', flexGrow: 1, overflowY: 'auto' }}>
-              <List dense sx={{ p: 0, width: '100%' }}>
-                {filteredTargets.map((t) => (
-                  <ListItemButton
-                    key={t.id}
-                    selected={selectedId === t.id}
-                    onClick={() => { handleSelectTarget(t); }}
-                    sx={{
-                      width: '100%',
-                      flexGrow: 0,
-                      flexShrink: 0,
-                      alignSelf: 'flex-start',
-                      borderRadius: 1,
-                      mb: 0.5,
-                      py: 0.4,
-                      px: 1.5,
-                      minHeight: 36,
-                      '&.Mui-selected': {
-                        bgcolor: 'action.selected',
-                        fontWeight: 'bold',
-                      }
-                    }}
-                  >
-                    <ListItemText
-                      primary={
-                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                          <Typography variant="body2" sx={{ fontWeight: selectedId === t.id ? 'bold' : 'medium', fontSize: '0.84rem', lineHeight: 1.2 }}>
-                            {t.name}
-                          </Typography>
-                          {t.paused && <Chip label="PAUSED" size="small" color="default" sx={{ height: 16, fontSize: '0.65rem' }} />}
-                        </Stack>
-                      }
-                      secondary={
-                        <Typography variant="caption" sx={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', display: 'block', fontSize: '0.72rem', lineHeight: 1.1 }}>
-                          {t.type} • {t.host}
-                        </Typography>
-                      }
-                    />
-                  </ListItemButton>
-                ))}
-                {filteredTargets.length === 0 && (
-                  <Box sx={{ p: 2, textAlign: 'center', width: '100%' }}>
-                    <Typography variant="caption" color="text.secondary">
-                      No targets found
-                    </Typography>
-                  </Box>
-                )}
-              </List>
-            </Box>
-          </Box>
-        </Grid>
-
-        {/* Right Side: Detail Pane */}
-        <Grid size={{ xs: 12, md: 8.8 }}>
-          <Card variant="outlined">
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                  {selectedId === -1 ? 'Add New Target' : `Target Settings: ${name}`}
-                </Typography>
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={!paused}
-                        onChange={(e) => { setPaused(!e.target.checked); }}
-                        size="small"
-                        slotProps={{ input: { 'aria-label': 'Monitor this target' } }}
-                      />
-                    }
-                    label={paused ? 'Paused' : 'Active'}
-                  />
-                  {selectedId !== null && selectedId !== -1 && (
-                    <Button
-                      variant="outlined"
-                      color="error"
+    <Workspace
+      index={
+        <>
+          <IndexHeader title={`Targets · ${activeProfile.name}`} count={profileTargetCount} action={{ label: 'Add', icon: <AddIcon />, onClick: handleNewTargetClick }} />
+          {profileTargetCount > 6 && <IndexFilter value={searchQuery} onChange={setSearchQuery} placeholder="Filter by name or host" />}
+          <IndexList label="Targets">
+            {filteredTargets.map((t, i) => (
+              <IndexRow
+                key={t.id}
+                n={i + 1}
+                selected={selectedId === t.id}
+                onSelect={() => { handleSelectTarget(t); }}
+                title={t.name || 'Untitled target'}
+                badge={t.paused ? <Tag>PAUSED</Tag> : undefined}
+                meta={`${t.type} · ${t.host}`}
+              />
+            ))}
+            {filteredTargets.length === 0 && (
+              <IndexEmpty>
+                {searchQuery ? `No target matches “${searchQuery}”.` : `${activeProfile.name} has no targets yet. Add a website, server or device to monitor.`}
+              </IndexEmpty>
+            )}
+          </IndexList>
+        </>
+      }
+    >
+      {selectedId === null ? (
+        <Pass maxWidth={560}>
+          <PassHead title="No target selected" description="Pick a target on the left, or add one." />
+          <PassFooter>
+            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleNewTargetClick}>Add a target</Button>
+          </PassFooter>
+        </Pass>
+      ) : (
+        <Pass component="form" onSubmit={handleSave} aria-label={isNew ? 'New target' : `${name} target`}>
+          <PassHead
+            title={isNew ? 'New target' : name || 'Untitled target'}
+            meta={
+              <>
+                <Tag>{type}</Tag>
+                <span>{host || 'no host yet'}</span>
+              </>
+            }
+            actions={
+              <>
+                <FormControlLabel
+                  sx={{ mr: 0.5 }}
+                  control={
+                    <Switch
+                      checked={!paused}
+                      onChange={(e) => { setPaused(!e.target.checked); }}
                       size="small"
-                      startIcon={<DeleteIcon />}
-                      onClick={() => { handleDelete(selectedId); }}
-                    >
-                      Remove Target
-                    </Button>
-                  )}
-                </Stack>
-              </Box>
-
-              <Box component="form" onSubmit={handleSave} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                <TextField
-                  label="Target Name"
-                  size="small"
-                  fullWidth
-                  required
-                  value={name}
-                  onChange={(e) => { setName(e.target.value); }}
-                />
-
-                <TextField
-                  select
-                  label="Target Type"
-                  size="small"
-                  fullWidth
-                  required
-                  value={type}
-                  onChange={(e) => { setType(e.target.value); }}
-                >
-                  <MenuItem value="HTTP">HTTP(S) Web Service</MenuItem>
-                  <MenuItem value="PING">PING (ICMP Protocol)</MenuItem>
-                </TextField>
-
-                <TextField
-                  label={type === 'HTTP' ? 'URL (e.g., https://example.com)' : 'IP Address or Hostname (e.g., 8.8.8.8)'}
-                  size="small"
-                  fullWidth
-                  required
-                  value={host}
-                  onChange={(e) => { setHost(e.target.value); }}
-                />
-
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      label="Check Connection Timeout (seconds)"
-                      type="number"
-                      size="small"
-                      fullWidth
-                      required
-                      value={timeout}
-                      onChange={(e) => { setTimeoutVal(Number(e.target.value)); }}
+                      slotProps={{ input: { 'aria-label': 'Monitor this target' } }}
                     />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      label="Consecutive Failures Alert Threshold"
-                      type="number"
-                      size="small"
-                      fullWidth
-                      required
-                      value={failuresLimit}
-                      onChange={(e) => { setFailuresLimit(Number(e.target.value)); }}
-                    />
-                  </Grid>
-                </Grid>
-
-                {type === 'HTTP' && (
-                  <>
-                    <Grid container spacing={2}>
-                      <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField
-                          label="Acceptable Status Codes (ONLINE / UP)"
-                          size="small"
-                          fullWidth
-                          required
-                          value={statusCodesStr}
-                          onChange={(e) => { setStatusCodesStr(e.target.value); }}
-                          helperText="Comma separated values (e.g. 200, 201, 204)"
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField
-                          label="Degraded Response Status Codes"
-                          size="small"
-                          fullWidth
-                          value={degradedCodesStr}
-                          onChange={(e) => { setDegradedCodesStr(e.target.value); }}
-                          helperText="StatusCodes marked DEGRADED instead of DOWN (e.g. 404, 503)"
-                        />
-                      </Grid>
-                    </Grid>
-
-                    <Grid container spacing={2}>
-                      <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField
-                          select
-                          label="Keyword Verification Rule"
-                          size="small"
-                          fullWidth
-                          value={keywordRule}
-                          onChange={(e) => { setKeywordRule(e.target.value); }}
-                        >
-                          <MenuItem value="DISABLED">Disabled (Status Code Only)</MenuItem>
-                          <MenuItem value="MUST_CONTAIN">Must Contain Keyword (Online if present)</MenuItem>
-                          <MenuItem value="MUST_NOT_CONTAIN">Must NOT Contain Keyword (Online if missing)</MenuItem>
-                        </TextField>
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField
-                          label="Keyword / Search Text"
-                          size="small"
-                          fullWidth
-                          disabled={keywordRule === 'DISABLED'}
-                          value={keyword}
-                          onChange={(e) => { setKeyword(e.target.value); }}
-                          placeholder='e.g. "status":"operational"'
-                        />
-                      </Grid>
-                    </Grid>
-                  </>
-                )}
-
-                <TextField
-                  label="Degraded Latency Threshold (ms)"
-                  type="number"
-                  size="small"
-                  fullWidth
-                  value={degradedLatency}
-                  onChange={(e) => { setDegradedLatency(Number(e.target.value)); }}
-                  helperText="Response times higher than this threshold mark target status as DEGRADED"
+                  }
+                  label={<Box component="span" sx={{ fontSize: 13 }}>{paused ? 'Paused' : 'Monitoring'}</Box>}
                 />
-
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Autocomplete
-                      disableClearable
-                      options={upSoundsList}
-                      value={upSound}
-                      onChange={(_e, val) => {
-                        if (val) {
-                          setUpSound(val);
-                          playPreview(val, 'up');
-                        }
-                      }}
-                      sx={{ userSelect: 'none' }}
-                      renderInput={(params) => (
-                        <TextField {...params} label="Custom Up Sound (Optional)" size="small" />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Autocomplete
-                      disableClearable
-                      options={downSoundsList}
-                      value={downSound}
-                      onChange={(_e, val) => {
-                        if (val) {
-                          setDownSound(val);
-                          playPreview(val, 'down');
-                        }
-                      }}
-                      sx={{ userSelect: 'none' }}
-                      renderInput={(params) => (
-                        <TextField {...params} label="Custom Down Sound (Optional)" size="small" />
-                      )}
-                    />
-                  </Grid>
-                </Grid>
-
-                <TextField
-                  label="Recovery Action Shell Script Command"
-                  size="small"
-                  fullWidth
-                  value={recoveryAction}
-                  onChange={(e) => { setRecoveryAction(e.target.value); }}
-                  placeholder="e.g. C:\scripts\restart_apache.bat"
-                />
-
-                {/* Live test of the values in the form */}
-                <Box sx={{ p: 2, borderRadius: 1.5, border: '1px solid', borderColor: 'divider', backgroundColor: 'background.default' }} aria-live="polite">
-                  <Typography variant="overline" color="text.secondary" sx={{ display: 'block' }}>
-                    Live test
-                  </Typography>
-                  {checking ? (
-                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 0.5 }}>
-                      <CircularProgress size={14} />
-                      <Typography variant="body2" color="text.secondary">Checking {host || 'target'}…</Typography>
-                    </Stack>
-                  ) : dryRunResult ? (
-                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mt: 0.5, flexWrap: 'wrap', rowGap: 1 }}>
-                      <Box
-                        component="span"
-                        sx={{
-                          fontFamily: fonts.mono,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          letterSpacing: '0.06em',
-                          lineHeight: '22px',
-                          px: 1,
-                          borderRadius: '3px',
-                          ...(dryRunResult.status === 'OFFLINE'
-                            ? { backgroundColor: signal.down, color: '#FFFFFF' }
-                            : { border: '1px solid', borderColor: 'divider', color: dryRunResult.status === 'DEGRADED' ? 'warning.main' : 'text.primary' }),
-                        }}
-                      >
-                        {dryRunResult.status === 'ONLINE' ? 'UP' : dryRunResult.status === 'DEGRADED' ? 'DEGRADED' : 'DOWN'}
-                      </Box>
-                      {dryRunResult.status !== 'OFFLINE' && (
-                        <Box component="span" sx={{ fontFamily: fonts.mono, fontSize: 13, fontWeight: 600 }}>
-                          {dryRunResult.responseTime} ms
-                        </Box>
-                      )}
-                      <Typography variant="body2" color="text.secondary" sx={{ fontFamily: fonts.mono, fontSize: 13, overflowWrap: 'anywhere' }}>
-                        {dryRunResult.message}
-                      </Typography>
-                    </Stack>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      Enter a host to test it.
-                    </Typography>
-                  )}
-                </Box>
-
-                <Box sx={{ mt: 1 }}>
-                  <Button type="submit" variant="contained" startIcon={<SaveIcon />}>
-                    Save Target
+                {!isNew && (
+                  <Button variant="outlined" size="small" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => { handleDelete(selectedId); }}>
+                    Remove
                   </Button>
-                </Box>
+                )}
+              </>
+            }
+          />
+
+          <PassSection label="What to check">
+            <FieldGrid>
+              <TextField
+                label="Name"
+                size="small"
+                fullWidth
+                required
+                value={name}
+                onChange={(e) => { setName(e.target.value); }}
+              />
+              <TextField
+                select
+                label="Check type"
+                size="small"
+                fullWidth
+                required
+                value={type}
+                onChange={(e) => { setType(e.target.value); }}
+              >
+                <MenuItem value="HTTP">HTTP(S) · website or API</MenuItem>
+                <MenuItem value="PING">Ping · server or device</MenuItem>
+              </TextField>
+            </FieldGrid>
+            <TextField
+              sx={{ mt: 2.5 }}
+              label={type === 'HTTP' ? 'URL' : 'IP address or hostname'}
+              placeholder={type === 'HTTP' ? 'https://example.com' : '192.168.1.1'}
+              size="small"
+              fullWidth
+              required
+              value={host}
+              onChange={(e) => { setHost(e.target.value); }}
+              slotProps={{ htmlInput: { style: { fontFamily: mono.fontFamily } } }}
+            />
+          </PassSection>
+
+          <PassSection
+            label="Live test"
+            hint="Runs the check with the values above as you type. Nothing is saved or recorded."
+            aside={
+              <Button variant="text" size="small" disabled={checking || !host.trim()} onClick={() => { void runLiveTest(host, type, timeout, statusCodesStr); }}>
+                Run again
+              </Button>
+            }
+          >
+            <Box aria-live="polite" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', minHeight: 26 }}>
+              {checking ? (
+                <>
+                  <CircularProgress size={14} />
+                  <Box component="span" sx={{ ...mono, fontSize: 13, color: 'text.secondary' }}>checking {host || 'target'}…</Box>
+                </>
+              ) : dryRunResult ? (
+                <>
+                  <Box
+                    component="span"
+                    sx={(theme) => ({
+                      ...mono,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: '0.06em',
+                      lineHeight: '22px',
+                      px: 1,
+                      borderRadius: '3px',
+                      ...(testTone === 'down'
+                        ? { backgroundColor: signal.down, color: '#FFFFFF' }
+                        : testTone === 'degraded'
+                          ? { backgroundColor: signal.change, color: ink }
+                          : { border: '1px solid', borderColor: (theme.vars || theme).palette.text.primary }),
+                    })}
+                  >
+                    {testTone === 'up' ? 'UP' : testTone === 'degraded' ? 'SLOW' : 'DOWN'}
+                  </Box>
+                  {testTone !== 'down' && (
+                    <Box component="span" sx={{ ...mono, fontSize: 15, fontWeight: 600 }}>{dryRunResult.responseTime} ms</Box>
+                  )}
+                  <Box component="span" sx={{ ...mono, fontSize: 13, color: 'text.secondary', overflowWrap: 'anywhere' }}>{dryRunResult.message}</Box>
+                </>
+              ) : (
+                <Box component="span" sx={{ fontSize: 13, color: 'text.secondary' }}>Enter a host to test it.</Box>
+              )}
+            </Box>
+          </PassSection>
+
+          <PassSection label="When it counts as down" hint={`Defaults come from the ${activeProfile.name} profile.`}>
+            <FieldGrid columns={3}>
+              <TextField
+                label="Timeout (s)"
+                type="number"
+                size="small"
+                fullWidth
+                required
+                value={timeout}
+                onChange={(e) => { setTimeoutVal(Number(e.target.value)); }}
+                slotProps={{ htmlInput: { min: 1 } }}
+              />
+              <TextField
+                label="Alert after failures"
+                type="number"
+                size="small"
+                fullWidth
+                required
+                value={failuresLimit}
+                onChange={(e) => { setFailuresLimit(Number(e.target.value)); }}
+                slotProps={{ htmlInput: { min: 1 } }}
+              />
+              <TextField
+                label="Slow above (ms)"
+                type="number"
+                size="small"
+                fullWidth
+                value={degradedLatency}
+                onChange={(e) => { setDegradedLatency(Number(e.target.value)); }}
+                slotProps={{ htmlInput: { min: 1 } }}
+              />
+            </FieldGrid>
+            {type === 'HTTP' && (
+              <Box sx={{ mt: 2.5 }}>
+                <FieldGrid>
+                  <TextField
+                    label="Status codes that mean up"
+                    size="small"
+                    fullWidth
+                    required
+                    value={statusCodesStr}
+                    onChange={(e) => { setStatusCodesStr(e.target.value); }}
+                    helperText="Comma separated, e.g. 200, 201, 204"
+                  />
+                  <TextField
+                    label="Status codes that mean slow"
+                    size="small"
+                    fullWidth
+                    value={degradedCodesStr}
+                    onChange={(e) => { setDegradedCodesStr(e.target.value); }}
+                    helperText="Counted as degraded instead of down, e.g. 404, 503"
+                  />
+                  <TextField
+                    select
+                    label="Page content check"
+                    size="small"
+                    fullWidth
+                    value={keywordRule}
+                    onChange={(e) => { setKeywordRule(e.target.value); }}
+                  >
+                    <MenuItem value="DISABLED">Off · status code only</MenuItem>
+                    <MenuItem value="MUST_CONTAIN">Page must contain the text</MenuItem>
+                    <MenuItem value="MUST_NOT_CONTAIN">Page must not contain the text</MenuItem>
+                  </TextField>
+                  <TextField
+                    label="Text to look for"
+                    size="small"
+                    fullWidth
+                    disabled={keywordRule === 'DISABLED'}
+                    value={keyword}
+                    onChange={(e) => { setKeyword(e.target.value); }}
+                    placeholder='e.g. "status":"operational"'
+                  />
+                </FieldGrid>
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Box>
+            )}
+          </PassSection>
+
+          <PassSection label="Alerts and recovery" aside={<AddSoundButton />}>
+            <Gate ready={caps.soundsOn} reason='Sounds are switched off. Turn on "Play a sound" in Settings to choose them here.'>
+              <FieldGrid>
+                <SoundSelect
+                  type="up"
+                  label="Sound when it recovers"
+                  value={upSound}
+                  onChange={setUpSound}
+                  inherit={{ value: 'default-profile', label: "Profile's sound" }}
+                  library={sounds}
+                />
+                <SoundSelect
+                  type="down"
+                  label="Sound when it goes down"
+                  value={downSound}
+                  onChange={setDownSound}
+                  inherit={{ value: 'default-profile', label: "Profile's sound" }}
+                  library={sounds}
+                />
+              </FieldGrid>
+            </Gate>
+            <TextField
+              sx={{ mt: 2.5 }}
+              label="Recovery command"
+              size="small"
+              fullWidth
+              value={recoveryAction}
+              onChange={(e) => { setRecoveryAction(e.target.value); }}
+              placeholder="e.g. C:\scripts\restart_apache.bat"
+              helperText={`Runs after ${failuresLimit} failed ${failuresLimit === 1 ? 'check' : 'checks'} in a row. Leave empty to only alert.`}
+            />
+          </PassSection>
+
+          <PassSection label="Email alerts" hint="Who gets an email when this target goes down.">
+            <Gate ready={caps.emailReady || caps.loading} reason={caps.emailBlocker}>
+              <EmailRuleEditor
+                value={email}
+                onChange={setEmail}
+                inheritLabel="Same as profile"
+                inheritSummary={describeEmail(resolveEmail(undefined, activeProfile.email, appEmail), appEmail)}
+                inheritedTemplate={activeProfile.email?.mode === 'custom' ? activeProfile.email : appEmail.emailTemplate}
+                inheritedRecipients={activeProfile.email?.mode === 'custom' ? activeProfile.email.recipients : activeProfile.email?.mode === 'off' ? [] : appEmail.emailRecipients}
+                appEnabled={appEmail.emailAlertsEnabled}
+              />
+            </Gate>
+          </PassSection>
+
+          <PassFooter>
+            <Button type="submit" variant="contained" size="small" disabled={!name.trim() || !host.trim()}>
+              {isNew ? 'Add target' : 'Save target'}
+            </Button>
+            {isNew && (
+              <Button variant="text" size="small" onClick={() => { handleDelete(-1); }}>Cancel</Button>
+            )}
+          </PassFooter>
+        </Pass>
+      )}
+    </Workspace>
   );
 }
