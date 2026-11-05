@@ -7,7 +7,9 @@ import java.util.Map;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.uptimesentry.persistence.HistoryRepository;
+import com.uptimesentry.persistence.SecretStore;
 import com.uptimesentry.persistence.SettingsRepository;
 import com.uptimesentry.persistence.SettingsRepository.AppSettings;
 
@@ -22,7 +24,9 @@ public class SettingsController {
         @SuppressWarnings("unchecked")
         Map<String, Object> out = new LinkedHashMap<>(MAPPER.convertValue(s, Map.class));
         out.remove("smtpPassword");
-        out.put("smtpPasswordSet", s.smtpPassword != null && !s.smtpPassword.isEmpty());
+        out.put("smtpPasswordSet", SecretStore.has(SecretStore.SMTP_PASSWORD));
+        // Where the password is kept, e.g. "Windows Credential Manager"; null means memory only.
+        out.put("passwordStore", SecretStore.storeName());
         ctx.json(out);
     }
 
@@ -32,7 +36,12 @@ public class SettingsController {
      */
     public void updateSettings(Context ctx) {
         try {
-            AppSettings updated = MAPPER.readerForUpdating(SettingsRepository.loadSettings().copy()).readValue(ctx.body());
+            JsonNode body = MAPPER.readTree(ctx.body());
+            AppSettings updated = MAPPER.readerForUpdating(SettingsRepository.loadSettings().copy()).readValue(body);
+            if (body.has("smtpPassword")) {
+                JsonNode pw = body.get("smtpPassword");
+                SecretStore.put(SecretStore.SMTP_PASSWORD, pw.isNull() ? null : pw.asText());
+            }
             updated.historyRetentionDays = Math.max(1, Math.min(updated.historyRetentionDays, 3650));
             if (updated.smtpSecurity == null) updated.smtpSecurity = "STARTTLS";
             SettingsRepository.saveSettings(updated);

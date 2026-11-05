@@ -54,7 +54,7 @@ const DEFAULT_SMTP: SmtpDraft = {
   smtpFromName: 'Uptime Sentry',
 };
 
-type BackendSettings = SmtpDraft & { smtpPasswordSet?: boolean; historyRetentionDays?: number };
+type BackendSettings = SmtpDraft & { smtpPasswordSet?: boolean; passwordStore?: string | null; historyRetentionDays?: number };
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -68,6 +68,8 @@ export default function SettingsTab() {
   const [storage, setStorage] = React.useState<{ checks: number; bytes: number; oldest: string | null } | null>(null);
   const [smtp, setSmtp] = React.useState<SmtpDraft>(DEFAULT_SMTP);
   const [passwordSet, setPasswordSet] = React.useState(false);
+  // undefined: not known yet; null: no system credential store, kept in memory only.
+  const [passwordStore, setPasswordStore] = React.useState<string | null | undefined>(undefined);
   const [passwordDirty, setPasswordDirty] = React.useState(false);
   const [backendError, setBackendError] = React.useState(false);
   const sounds = useSoundLibrary();
@@ -92,6 +94,7 @@ export default function SettingsTab() {
       smtpFromName: d.smtpFromName ?? 'Uptime Sentry',
     });
     setPasswordSet(!!d.smtpPasswordSet);
+    setPasswordStore(d.passwordStore);
     setPasswordDirty(false);
     const days = d.historyRetentionDays;
     if (days) setSettings((prev) => ({ ...prev, logRetentionDays: days }));
@@ -305,7 +308,9 @@ export default function SettingsTab() {
                 />
               </FieldGrid>
               <Typography variant="caption" color="text.secondary">
-                The password is kept in the monitoring service&apos;s settings.json on this computer and is only sent to this mail server.
+                {passwordStore === null
+                  ? "This computer has no system credential store, so the password is only kept in memory and must be entered again after a restart. It is never written to a file and only sent to this mail server."
+                  : `The password is stored encrypted in ${passwordStore ?? "your system's credential store"}, not in a file, and is only sent to this mail server.`}
               </Typography>
               {backendError && (
                 <Typography variant="body2" role="alert">

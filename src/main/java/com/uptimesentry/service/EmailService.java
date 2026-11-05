@@ -104,7 +104,11 @@ public class EmailService {
     }
 
     public static SmtpClient.Server server(AppSettings s) {
-        return new SmtpClient.Server(s.smtpHost, s.smtpPort, s.smtpSecurity, s.smtpUsername, s.smtpPassword, s.smtpFrom, s.smtpFromName);
+        // A password typed for a test send (not saved yet) wins; otherwise use the stored one.
+        String password = s.smtpPassword != null && !s.smtpPassword.isEmpty()
+            ? s.smtpPassword
+            : com.uptimesentry.persistence.SecretStore.get(com.uptimesentry.persistence.SecretStore.SMTP_PASSWORD);
+        return new SmtpClient.Server(s.smtpHost, s.smtpPort, s.smtpSecurity, s.smtpUsername, password, s.smtpFrom, s.smtpFromName);
     }
 
     static Map<String, String> variables(MonitoredTarget t, Outage o, boolean recovered) {

@@ -40,6 +40,13 @@
             <version>${jackson.version}</version>
         </dependency>
 
+        <!-- OS credential store (Windows Credential Manager, macOS Keychain, Linux Secret Service) for the SMTP password -->
+        <dependency>
+            <groupId>com.github.javakeyring</groupId>
+            <artifactId>java-keyring</artifactId>
+            <version>1.0.4</version>
+        </dependency>
+
         <!-- JUnit 5 for tests -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

@@ -27,7 +27,11 @@ public class SettingsRepository {
         /** STARTTLS, SSL or NONE. */
         public String smtpSecurity = "STARTTLS";
         public String smtpUsername = "";
-        public String smtpPassword = "";
+        /**
+         * Never written to settings.json: the password lives in {@link SecretStore}. Only read here to move
+         * a password saved by an older version out of the file, and used in memory for unsaved test sends.
+         */
+        public String smtpPassword;
         public String smtpFrom = "";
         public String smtpFromName = "Uptime Sentry";
 
@@ -56,6 +60,7 @@ public class SettingsRepository {
             if (cachedSettings == null) {
                 cachedSettings = new AppSettings();
             }
+            migratePlainTextPassword(cachedSettings);
             return cachedSettings;
         } catch (IOException | JsonParseException e) {
             cachedSettings = new AppSettings();
@@ -63,7 +68,19 @@ public class SettingsRepository {
         }
     }
 
+    /** Older versions saved the SMTP password in settings.json; move it to the credential store and drop it from the file. */
+    private static void migratePlainTextPassword(AppSettings s) {
+        if (s.smtpPassword == null) return;
+        if (!s.smtpPassword.isEmpty()) {
+            SecretStore.put(SecretStore.SMTP_PASSWORD, s.smtpPassword);
+            com.uptimesentry.util.SentryLogger.info("Moved the mail password from settings.json to the system credential store.");
+        }
+        s.smtpPassword = null;
+        saveSettings(s);
+    }
+
     public static synchronized void saveSettings(AppSettings settings) {
+        settings.smtpPassword = null; // Secrets never go into the file (see SecretStore).
         cachedSettings = settings;
         try {
             Files.writeString(SETTINGS_FILE, GSON.toJson(settings), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
