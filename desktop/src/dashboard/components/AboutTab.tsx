@@ -10,7 +10,7 @@ import { fonts, ink, paper, signal } from '../../shared-theme/themePrimitives';
 import { API } from '../historyStats';
 import { Pass, PassSection } from './workspace';
 
-const APP_VERSION = 'v0.5.0';
+const APP_VERSION = 'v0.5.1';
 const REPO = 'https://github.com/wladermisch/Uptime-Sentry';
 
 const mono = { fontFamily: fonts.mono, fontVariantNumeric: 'tabular-nums' } as const;
