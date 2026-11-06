@@ -29,7 +29,7 @@ import {
 } from '../reportModel';
 import { DowntimeBars, ResponseChart, UptimeStrip } from './ReportCharts';
 
-const APP_VERSION = 'v0.5.1';
+const APP_VERSION = 'v0.6.0';
 const mono = { fontFamily: fonts.mono, fontVariantNumeric: 'tabular-nums' } as const;
 const SLA_OPTIONS = [99, 99.5, 99.9, 99.95, 99.99];
 
