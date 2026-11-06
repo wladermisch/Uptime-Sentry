@@ -20,6 +20,12 @@ export interface Target {
   acceptableStatusCodes: number[];
   consecutiveFailuresLimit: number;
   profileName: string;
+  degradedLatencyThreshold?: number;
+  slowAlertAfter?: number;
+  port?: number;
+  dnsExpected?: string;
+  sslWarnDays?: number;
+  paused?: boolean;
 }
 
 export interface CheckResult {
@@ -33,6 +39,10 @@ export interface CheckResult {
   targetType?: string;
   host?: string;
   profileName?: string;
+  /** The alert this check set off: DOWN, UP, SLOW or NORMAL (v0.6+). */
+  alert?: 'DOWN' | 'UP' | 'SLOW' | 'NORMAL';
+  /** Ran during a maintenance window: no alerts, not counted in availability. */
+  maintenance?: boolean;
 }
 
 export type TargetState = 'down' | 'up' | 'pending';
@@ -48,6 +58,10 @@ export interface BoardRow {
   unseen: boolean;
   /** Recovered and not yet acknowledged. */
   recovered: boolean;
+  /** The latest check ran during a maintenance window. */
+  maintenance: boolean;
+  /** Up, but slower than the target's "slow above" limit. */
+  slow: boolean;
   consecutiveFails: number;
   latency: number | null;
   message: string;
@@ -59,6 +73,8 @@ export interface BoardRow {
 export type AckMap = Record<string, string>;
 
 const ACK_KEY = 'uptime_sentry_board_ack';
+/** Fired whenever acknowledgements change, so the board and the notification bell stay in step. */
+export const ACKS_CHANGED = 'acks-changed';
 
 export function loadAcks(): AckMap {
   try {
@@ -74,6 +90,71 @@ export function saveAcks(acks: AckMap) {
   } catch {
     // Storage unavailable: acknowledgements last for this session only.
   }
+  window.dispatchEvent(new CustomEvent(ACKS_CHANGED));
+}
+
+/** Marks everything up to `ts` as seen for each target (never moves an acknowledgement backwards). */
+export function acknowledgeUntil(entries: { targetId: number; ts: string }[]) {
+  const acks = loadAcks();
+  let changed = false;
+  for (const { targetId, ts } of entries) {
+    const key = String(targetId);
+    if ((acks[key] ?? '') < ts) { acks[key] = ts; changed = true; }
+  }
+  if (changed) saveAcks(acks);
+}
+
+export type AlertKind = 'down' | 'up' | 'slow' | 'normal';
+
+/** A target going down or coming back, taken from the check history. */
+export interface AlertEvent {
+  targetId: number;
+  targetName: string;
+  kind: AlertKind;
+  /** First check in the new state. */
+  ts: string;
+  message: string;
+}
+
+/**
+ * State changes in the history, newest first: the first failed check of each outage and the first
+ * successful check after it (a target whose history starts with a failure counts as going down then),
+ * plus response time alerts. Checks during maintenance are skipped: planned work isn't news.
+ */
+export function alertEvents(history: CheckResult[], limit = 30): AlertEvent[] {
+  const byTarget = new Map<number, CheckResult[]>();
+  for (const h of history) {
+    const list = byTarget.get(h.targetId);
+    if (list) list.push(h); else byTarget.set(h.targetId, [h]);
+  }
+  const events: AlertEvent[] = [];
+  for (const checks of byTarget.values()) {
+    checks.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    let prev: boolean | null = null;
+    for (const c of checks) {
+      if (c.maintenance) continue;
+      if (c.alert === 'SLOW' || c.alert === 'NORMAL') {
+        events.push({
+          targetId: c.targetId,
+          targetName: c.targetName,
+          kind: c.alert === 'SLOW' ? 'slow' : 'normal',
+          ts: c.timestamp,
+          message: `${c.durationMillis} ms · ${c.message || ''}`.replace(/ · $/, ''),
+        });
+      }
+      if (prev === null ? !c.success : c.success !== prev) {
+        events.push({
+          targetId: c.targetId,
+          targetName: c.targetName,
+          kind: c.success ? 'up' : 'down',
+          ts: c.timestamp,
+          message: c.success ? 'Responding again.' : (c.message || 'Check failed.'),
+        });
+      }
+      prev = c.success;
+    }
+  }
+  return events.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, limit);
 }
 
 export function parseTs(ts: string): Date {
@@ -88,7 +169,7 @@ export function deriveRow(target: Target, history: CheckResult[], acks: AckMap):
 
   if (!latest) {
     return {
-      target, state: 'pending', since: null, transitioned: false, unseen: false, recovered: false,
+      target, state: 'pending', since: null, transitioned: false, unseen: false, recovered: false, maintenance: false, slow: false,
       consecutiveFails: 0, latency: null, message: 'Waiting for the first check.',
       lastChecked: null, uptime: null, recent: [],
     };
@@ -104,7 +185,10 @@ export function deriveRow(target: Target, history: CheckResult[], acks: AckMap):
   for (let j = checks.length - 1; j >= 0 && !checks[j].success; j--) consecutiveFails++;
 
   const ack = acks[String(target.id)] ?? '';
-  const unseen = (state === 'down' || transitioned) && ack < since;
+  const maintenance = latest.maintenance === true;
+  // Planned work isn't news: nothing to acknowledge while a window is running.
+  const unseen = !maintenance && (state === 'down' || transitioned) && ack < since;
+  const latency = latest.success ? Math.max(0, latest.durationMillis) : null;
   const online = checks.filter((c) => c.success).length;
 
   return {
@@ -114,8 +198,10 @@ export function deriveRow(target: Target, history: CheckResult[], acks: AckMap):
     transitioned,
     unseen,
     recovered: state === 'up' && transitioned && unseen,
+    maintenance,
+    slow: latency !== null && latency > (target.degradedLatencyThreshold || 1500),
     consecutiveFails,
-    latency: latest.success ? Math.max(0, latest.durationMillis) : null,
+    latency,
     message: latest.message || (latest.success ? 'Check succeeded.' : 'Check failed.'),
     lastChecked: latest.timestamp,
     uptime: (online / checks.length) * 100,
@@ -124,7 +210,7 @@ export function deriveRow(target: Target, history: CheckResult[], acks: AckMap):
 }
 
 function severity(r: BoardRow) {
-  if (r.state === 'down') return 0;
+  if (r.state === 'down' && !r.maintenance) return 0;
   if (r.recovered) return 1;
   if (r.state === 'pending') return 2;
   return 3;

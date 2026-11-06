@@ -6,17 +6,18 @@ import ButtonBase from '@mui/material/ButtonBase';
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded';
 import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded';
 import { BoardRow, BoardSort, SortKey, formatDuration, formatSince } from './boardModel';
-import { fonts, signal, ink, gray, paper } from '../../shared-theme/themePrimitives';
+import { fonts, signal, ink } from '../../shared-theme/themePrimitives';
 
 const ROW_H = 52;
 
 const mono = { fontFamily: fonts.mono, fontVariantNumeric: 'tabular-nums' } as const;
 
 function statusLabel(r: BoardRow) {
+  if (r.maintenance) return r.state === 'down' ? 'MAINT · DOWN' : 'MAINT';
   if (r.state === 'down') return 'DOWN';
   if (r.recovered) return 'RECOVERED';
   if (r.state === 'pending') return 'PENDING';
-  return 'UP';
+  return r.slow ? 'SLOW' : 'UP';
 }
 
 function prefersReducedMotion() {
@@ -81,7 +82,7 @@ function SortHeader({ label, sortKey, sort, onSort, align = 'left' }: {
         font: 'inherit',
         letterSpacing: 'inherit',
         textTransform: 'inherit',
-        color: active ? paper : 'inherit',
+        color: active ? 'var(--board-head-ink)' : 'inherit',
         display: 'inline-flex',
         flexDirection: align === 'right' ? 'row-reverse' : 'row',
         alignItems: 'center',
@@ -90,8 +91,8 @@ function SortHeader({ label, sortKey, sort, onSort, align = 'left' }: {
         px: 0.75,
         mx: -0.75,
         borderRadius: '3px',
-        '&:hover': { color: paper, backgroundColor: 'rgba(242, 242, 238, 0.08)' },
-        '&:focus-visible': { outline: `2px solid ${paper}`, outlineOffset: 0 },
+        '&:hover': { color: 'var(--board-head-ink)', backgroundColor: 'var(--board-head-hover)' },
+        '&:focus-visible': { outline: '2px solid var(--board-head-ink)', outlineOffset: 0 },
         '& svg': { fontSize: 14, opacity: active ? 1 : 0, transition: 'opacity 120ms ease-out' },
         '&:hover svg': { opacity: active ? 1 : 0.5 },
       }}
@@ -121,14 +122,14 @@ export default function GateBoard({ rows, loading, selectedId, onSelect, now, em
     fontWeight: 600,
     letterSpacing: '0.12em',
     textTransform: 'uppercase',
-    color: gray[400],
+    color: 'var(--board-head-muted)',
     textAlign: 'left',
     height: 36,
     px: 1.5,
     position: 'sticky',
     top: 0,
     zIndex: 1,
-    // Ink band in light mode; slate in dark mode, where the board ground is ink too (see index.css).
+    // Light band in light mode, slate in dark mode (see index.css).
     backgroundColor: 'var(--board-head-bg)',
     borderBottom: '1px solid var(--board-head-rule)',
   } as const;
@@ -184,7 +185,8 @@ export default function GateBoard({ rows, loading, selectedId, onSelect, now, em
         {rows.map((r, idx) => {
           const id = r.target.id;
           const selected = id === selectedId;
-          const down = r.state === 'down';
+          // During maintenance a down target is expected: no red row.
+          const down = r.state === 'down' && !r.maintenance;
           const changed = r.recovered;
           return (
             <Box

@@ -14,7 +14,10 @@ import DialogActions from '@mui/material/DialogActions';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
-import { gray, paper, signal } from '../../shared-theme/themePrimitives';
+import IconButton from '@mui/material/IconButton';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import { NotesMap, loadNotes, putNotes } from '../serverData';
+import { signal } from '../../shared-theme/themePrimitives';
 import { navigate } from '../nav';
 import { Label, IndexEmpty, IndexFilter, IndexHeader, IndexList, IndexRow, Pass, PassHead, PassSection, Tag, Workspace, mono } from './workspace';
 import { CheckResult, Target, deriveRow, formatClock, formatDuration } from '../home/boardModel';
@@ -23,7 +26,6 @@ import {
   formatDateTime, formatPct, formatSpan, fromDateInput, startOfDay, toDateInput, windowStats,
 } from '../historyStats';
 
-const NOTES_KEY = 'uptime_sentry_incident_notes';
 const SHOW_REMOVED_KEY = 'uptime_sentry_analytics_show_removed';
 
 /** Targets that were deleted but still have recorded checks, newest name first. */
@@ -37,12 +39,6 @@ function removedFromHistory(history: CheckResult[], currentIds: Set<number>): Ta
     });
   }
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
-}
-
-type Notes = Record<string, { time: string; text: string }[]>;
-
-function loadNotes(): Notes {
-  try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}') as Notes; } catch { return {}; }
 }
 
 function Fact({ label, value, tone }: { label: string; value: React.ReactNode; tone?: 'down' }) {
@@ -72,7 +68,7 @@ const headCell = {
   fontWeight: 600,
   letterSpacing: '0.12em',
   textTransform: 'uppercase',
-  color: gray[400],
+  color: 'var(--board-head-muted)',
   textAlign: 'left',
   whiteSpace: 'nowrap',
   height: 34,
@@ -110,7 +106,8 @@ export default function AnalyticsTab() {
   const [fromDate, setFromDate] = React.useState(() => toDateInput(daysAgo(new Date(), 7)));
   const [toDate, setToDate] = React.useState(() => toDateInput(new Date()));
   const [openIncident, setOpenIncident] = React.useState<Incident | null>(null);
-  const [notes, setNotes] = React.useState<Notes>(loadNotes);
+  const [notes, setNotes] = React.useState<NotesMap>({});
+  const [noteError, setNoteError] = React.useState<string | null>(null);
   const [noteInput, setNoteInput] = React.useState('');
   const [alertPlayed, setAlertPlayed] = React.useState(false);
   const [showRemoved, setShowRemoved] = React.useState(() => {
@@ -143,6 +140,11 @@ export default function AnalyticsTab() {
       setHistoryError(true);
     }
     setNow(new Date());
+  }, []);
+
+  React.useEffect(() => {
+    // Notes live in the monitoring service, so reports and scheduled emails can include them.
+    loadNotes().then(setNotes).catch(() => { /* offline: shown when saving */ });
   }, []);
 
   React.useEffect(() => {
@@ -206,16 +208,29 @@ export default function AnalyticsTab() {
     }
   };
 
-  const addNote = () => {
-    if (!openIncident || !noteInput.trim()) return;
-    const next: Notes = {
-      ...notes,
-      [openIncident.id]: [...(notes[openIncident.id] ?? []), { time: new Date().toISOString(), text: noteInput.trim() }],
-    };
-    setNotes(next);
-    try { localStorage.setItem(NOTES_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
-    setNoteInput('');
+  const saveNotes = async (id: string, list: { time: string; text: string }[]) => {
+    try {
+      setNotes(await putNotes(id, list));
+      setNoteError(null);
+      return true;
+    } catch {
+      setNoteError("Can't reach the monitoring service, so the note wasn't saved.");
+      return false;
+    }
   };
+
+  const addNote = async () => {
+    if (!openIncident || !noteInput.trim()) return;
+    const ok = await saveNotes(openIncident.id, [...(notes[openIncident.id] ?? []), { time: new Date().toISOString(), text: noteInput.trim() }]);
+    if (ok) setNoteInput('');
+  };
+
+  const removeNote = (time: string) => {
+    if (!openIncident) return;
+    void saveNotes(openIncident.id, (notes[openIncident.id] ?? []).filter((n) => n.time !== time));
+  };
+
+  const maintenanceChecks = selected ? history.filter((h) => h.targetId === selected.id && h.maintenance).length : 0;
 
   const stateLabel = !row || row.state === 'pending' ? 'No checks yet' : row.state === 'down' ? 'Down' : 'Up';
 
@@ -234,10 +249,10 @@ export default function AnalyticsTab() {
                     size="small"
                     checked={showRemoved}
                     onChange={(e) => { toggleRemoved(e.target.checked); }}
-                    sx={{ p: 0.5, color: gray[500], '&.Mui-checked': { color: paper }, '& svg': { fontSize: 16 } }}
+                    sx={{ p: 0.5, color: 'var(--board-head-faint)', '&.Mui-checked': { color: 'var(--board-head-ink)' }, '& svg': { fontSize: 16 } }}
                   />
                 )}
-                sx={{ mr: 0.5, ml: 0, gap: 0.25, '& .MuiFormControlLabel-label': { font: 'inherit', letterSpacing: 'inherit', color: gray[400] } }}
+                sx={{ mr: 0.5, ml: 0, gap: 0.25, '& .MuiFormControlLabel-label': { font: 'inherit', letterSpacing: 'inherit', color: 'var(--board-head-muted)' } }}
               />
             ) : undefined}
           />
@@ -346,6 +361,7 @@ export default function AnalyticsTab() {
               {coverage
                 ? `Based on ${checks.length} recorded checks since ${formatDateTime(coverage)}. Periods before that show no data; Settings sets how many days of history are kept.`
                 : 'No checks recorded for this target yet.'}
+              {maintenanceChecks > 0 && ` ${maintenanceChecks.toLocaleString()} ${maintenanceChecks === 1 ? 'check' : 'checks'} during maintenance windows ${maintenanceChecks === 1 ? "isn't" : "aren't"} counted.`}
             </Box>
           </PassSection>
 
@@ -427,8 +443,8 @@ export default function AnalyticsTab() {
             <Box>
               <Label>Check log</Label>
               <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                {[...openIncident.failedChecks, ...(openIncident.recovery ? [openIncident.recovery] : [])].map((c) => (
-                  <Box component="li" key={c.timestamp} sx={{ display: 'grid', gridTemplateColumns: '84px 64px 1fr', gap: 1.5, ...mono, fontSize: 13 }}>
+                {[...openIncident.failedChecks, ...(openIncident.recovery ? [openIncident.recovery] : [])].map((c, i) => (
+                  <Box component="li" key={`${i}-${c.timestamp}`} sx={{ display: 'grid', gridTemplateColumns: '84px 64px 1fr', gap: 1.5, ...mono, fontSize: 13 }}>
                     <span>{formatClock(c.timestamp)}</span>
                     <Box component="span" sx={(theme) => ({ fontWeight: 700, color: c.success ? 'inherit' : signal.downInk, ...theme.applyStyles('dark', { color: c.success ? 'inherit' : signal.downOnDark }) })}>
                       {c.success ? 'UP' : 'DOWN'}
@@ -442,12 +458,19 @@ export default function AnalyticsTab() {
             </Box>
             <Box>
               <Label>Notes</Label>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Notes appear in reports and scheduled report emails.</Typography>
               {(notes[openIncident.id] ?? []).map((n) => (
-                <Box key={n.time} sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Typography sx={{ ...mono, fontSize: 12, color: 'text.secondary' }}>{formatDateTime(new Date(n.time))}</Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{n.text}</Typography>
+                <Box key={n.time} sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ ...mono, fontSize: 12, color: 'text.secondary' }}>{formatDateTime(new Date(n.time))}</Typography>
+                    <Typography variant="body2" className="selectable" sx={{ whiteSpace: 'pre-wrap' }}>{n.text}</Typography>
+                  </Box>
+                  <IconButton size="small" aria-label="Delete note" onClick={() => { removeNote(n.time); }}>
+                    <CloseRoundedIcon fontSize="small" />
+                  </IconButton>
                 </Box>
               ))}
+              {noteError && <Typography variant="body2" role="alert" sx={{ color: 'error.main', mt: 1 }}>{noteError}</Typography>}
               <Stack direction="row" spacing={1} sx={{ mt: 1, alignItems: 'flex-start' }}>
                 <TextField
                   placeholder="What caused it, what fixed it…"
@@ -459,7 +482,7 @@ export default function AnalyticsTab() {
                   onChange={(e) => { setNoteInput(e.target.value); }}
                   slotProps={{ htmlInput: { 'aria-label': 'Add a note to this outage' } }}
                 />
-                <Button variant="contained" size="small" onClick={addNote} disabled={!noteInput.trim()}>
+                <Button variant="contained" size="small" onClick={() => { void addNote(); }} disabled={!noteInput.trim()}>
                   Save note
                 </Button>
               </Stack>

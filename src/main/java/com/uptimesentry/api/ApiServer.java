@@ -1,9 +1,15 @@
 package com.uptimesentry.api;
 
 import com.uptimesentry.model.MonitoredTarget;
+import com.uptimesentry.persistence.AppData;
+import com.uptimesentry.persistence.HistoryRepository;
+import com.uptimesentry.persistence.SecretStore;
+import com.uptimesentry.persistence.SettingsRepository;
 import com.uptimesentry.persistence.TargetRepository;
 import com.uptimesentry.service.AutoCheckService;
 import com.uptimesentry.service.NotificationService;
+import com.uptimesentry.service.ReportScheduler;
+import com.uptimesentry.service.StatusPage;
 import com.uptimesentry.util.SentryLogger;
 
 import io.javalin.Javalin;
@@ -25,12 +31,18 @@ public class ApiServer {
     private final Javalin app;
     private final List<MonitoredTarget> targets;
     private final AutoCheckService autoCheckService;
+    private final ReportScheduler reportScheduler;
+    private final StatusPage statusPage;
 
     public ApiServer() throws Exception {
         this.targets = TargetRepository.loadTargets(TARGETS_FILE);
         NotificationService notificationService = new NotificationService();
         this.autoCheckService = new AutoCheckService(targets, 60, notificationService);
         this.autoCheckService.startAutoChecks();
+        this.reportScheduler = new ReportScheduler(targets);
+        this.reportScheduler.start();
+        this.statusPage = new StatusPage(targets);
+        SettingsController.onSaved = statusPage::applySettings;
 
         this.app = Javalin.create(config ->
             config.bundledPlugins.enableCors(cors ->
@@ -48,6 +60,7 @@ public class ApiServer {
         AudioController audioCtrl = new AudioController();
         SettingsController settingsCtrl = new SettingsController();
         EmailController emailCtrl = new EmailController();
+        DataController dataCtrl = new DataController(reportScheduler, statusPage);
 
         app.get("/api/targets",             targetsCtrl::getAll);
         app.post("/api/targets",            targetsCtrl::add);
@@ -62,7 +75,35 @@ public class ApiServer {
         app.get("/api/history/stats",       historyCtrl::getStats);
         app.delete("/api/history",          historyCtrl::clearHistory);
 
+        // Malformed request bodies are the caller's mistake: say what was wrong instead of a bare 500.
+        app.exception(com.fasterxml.jackson.core.JsonProcessingException.class,
+            (e, ctx) -> ctx.status(400).result("Invalid data: " + e.getOriginalMessage()));
+        app.exception(com.google.gson.JsonParseException.class,
+            (e, ctx) -> ctx.status(400).result("Invalid data: " + e.getMessage()));
+
+        app.post("/api/history/import",     dataCtrl::importHistory);
+
         app.post("/api/email/test",         emailCtrl::sendTest);
+
+        app.get("/api/maintenance",         dataCtrl::getMaintenance);
+        app.put("/api/maintenance",         dataCtrl::putMaintenance);
+        app.get("/api/webhooks",            dataCtrl::getWebhooks);
+        app.put("/api/webhooks",            dataCtrl::putWebhooks);
+        app.post("/api/webhooks/test",      dataCtrl::testWebhook);
+        app.get("/api/schedules",           dataCtrl::getSchedules);
+        app.put("/api/schedules",           dataCtrl::putSchedules);
+        app.post("/api/schedules/send",     dataCtrl::sendSchedule);
+        app.get("/api/notes",               dataCtrl::getNotes);
+        app.put("/api/notes",               dataCtrl::putNotes);
+        app.post("/api/notes/merge",        dataCtrl::mergeNotes);
+        app.get("/api/backup",              dataCtrl::getBackup);
+        app.post("/api/backup",             dataCtrl::restoreBackup);
+
+        // Status page for this computer; StatusPage can also share it on the network on its own port.
+        app.get("/status",                  dataCtrl::statusHtml);
+        app.get("/api/status",              dataCtrl::statusJson);
+        app.get("/api/status/info",         dataCtrl::statusInfo);
+        app.post("/api/status/open",        dataCtrl::openStatus);
 
         app.get("/api/autocheck/status",    autoCheckCtrl::getStatus);
         app.post("/api/autocheck/start",    autoCheckCtrl::start);
@@ -91,6 +132,23 @@ public class ApiServer {
             } catch (Exception e) { ctx.status(500).result("Failed to read log: " + e.getMessage()); }
         });
 
+        // Back to a fresh install: no targets, history, settings, saved mail password or custom sounds.
+        app.post("/api/reset", ctx -> {
+            synchronized (targets) {
+                targets.clear();
+                TargetRepository.saveTargets(targets, TARGETS_FILE);
+            }
+            autoCheckService.resetState();
+            HistoryRepository.clearHistory();
+            SettingsRepository.saveSettings(new SettingsRepository.AppSettings());
+            SecretStore.put(SecretStore.SMTP_PASSWORD, null);
+            AppData.clearAll();
+            statusPage.applySettings();
+            deleteTree(Paths.get(AudioController.CUSTOM_DIR));
+            SentryLogger.info("Application reset: targets, history, settings, maintenance, webhooks, scheduled reports, notes and custom sounds were removed.");
+            ctx.status(204);
+        });
+
         app.post("/api/runtime/shutdown", ctx -> {
             ctx.result("Shutting down...");
             SentryLogger.info("Shutdown requested via API.", false);
@@ -101,8 +159,24 @@ public class ApiServer {
         });
     }
 
+    private static void deleteTree(Path dir) {
+        if (!java.nio.file.Files.exists(dir)) return;
+        try (java.util.stream.Stream<Path> walk = java.nio.file.Files.walk(dir)) {
+            walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+                try {
+                    java.nio.file.Files.deleteIfExists(p);
+                } catch (java.io.IOException e) {
+                    SentryLogger.warn("Couldn't delete " + p + ": " + e.getMessage());
+                }
+            });
+        } catch (java.io.IOException e) {
+            SentryLogger.warn("Couldn't delete " + dir + ": " + e.getMessage());
+        }
+    }
+
     public void start() {
         app.start("127.0.0.1", PORT);
+        statusPage.applySettings();
         SentryLogger.info("API server started on http://127.0.0.1:" + PORT, false);
     }
 

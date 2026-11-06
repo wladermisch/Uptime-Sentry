@@ -84,7 +84,7 @@ export function Workspace({ index, children, indexWidth = 320 }: { index: React.
   );
 }
 
-/** The ink header band of an index column, matching the board's column header. */
+/** The header band of an index column, matching the board's column header. */
 export function IndexHeader({ title, count, action, extra }: { title: string; count?: number; action?: { label: string; icon?: React.ReactNode; onClick: () => void }; extra?: React.ReactNode }) {
   return (
     <Box
@@ -101,14 +101,14 @@ export function IndexHeader({ title, count, action, extra }: { title: string; co
         fontWeight: 600,
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
-        color: gray[400],
+        color: 'var(--board-head-muted)',
         backgroundColor: 'var(--board-head-bg)',
         borderBottom: '1px solid var(--board-head-rule)',
       }}
     >
       <Box component="span" sx={{ mr: 'auto' }}>
         {title}
-        {count !== undefined && <Box component="span" sx={{ color: gray[500], ml: 1 }}>{count}</Box>}
+        {count !== undefined && <Box component="span" sx={{ color: 'var(--board-head-faint)', ml: 1 }}>{count}</Box>}
       </Box>
       {extra}
       {action && (
@@ -118,14 +118,14 @@ export function IndexHeader({ title, count, action, extra }: { title: string; co
             font: 'inherit',
             letterSpacing: 'inherit',
             textTransform: 'inherit',
-            color: paper,
+            color: 'var(--board-head-ink)',
             height: 26,
             px: 1,
             gap: 0.5,
             borderRadius: '3px',
             '& svg': { fontSize: 15 },
-            '&:hover': { backgroundColor: 'rgba(242, 242, 238, 0.1)' },
-            '&:focus-visible': { outline: `2px solid ${paper}`, outlineOffset: 0 },
+            '&:hover': { backgroundColor: 'var(--board-head-hover)' },
+            '&:focus-visible': { outline: '2px solid var(--board-head-ink)', outlineOffset: 0 },
           }}
         >
           {action.icon}

@@ -1,11 +1,10 @@
 import Box from '@mui/material/Box';
 import MenuContent from './MenuContent';
 import BrandMark from './BrandMark';
-import { gray, ink, paper } from '../../shared-theme/themePrimitives';
 
 export const railWidth = 80;
 
-/** The shell rail: matte ink in both schemes, labelled icons, brand mark on top. */
+/** The shell rail: white in light mode, matte ink in dark mode (colors in index.css), labelled icons, brand mark on top. */
 export default function SideMenu() {
   return (
     <Box
@@ -19,14 +18,14 @@ export default function SideMenu() {
         height: '100vh',
         position: 'sticky',
         top: 0,
-        backgroundColor: ink,
-        borderRight: `1px solid ${gray[800]}`,
-        color: paper,
+        backgroundColor: 'var(--rail-bg)',
+        borderRight: '1px solid var(--rail-rule)',
+        color: 'var(--rail-ink)',
       }}
     >
       <Box
         title="Uptime Sentry"
-        sx={{ height: 56, display: 'grid', placeItems: 'center', color: paper, '--brandmark-ink': ink }}
+        sx={{ height: 56, display: 'grid', placeItems: 'center', color: 'var(--rail-brand)', '--brandmark-ink': 'var(--rail-brand-ink)' }}
       >
         <BrandMark size={30} />
       </Box>

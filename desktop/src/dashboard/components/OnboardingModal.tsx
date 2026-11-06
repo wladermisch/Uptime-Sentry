@@ -16,17 +16,32 @@ import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import TrackChangesRoundedIcon from '@mui/icons-material/TrackChangesRounded';
 import AnalyticsRoundedIcon from '@mui/icons-material/AnalyticsRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import EngineeringRoundedIcon from '@mui/icons-material/EngineeringRounded';
+import NotificationsActiveRoundedIcon from '@mui/icons-material/NotificationsActiveRounded';
+import PublicRoundedIcon from '@mui/icons-material/PublicRounded';
 import BrandMark from './BrandMark';
+import { ImportBackupButton } from './BackupControls';
 import { fonts, ink, paper } from '../../shared-theme/themePrimitives';
 
 const STEPS = ['Welcome', 'Tour', 'Preferences', 'First target'];
 
 const TOUR = [
-  { icon: <HomeRoundedIcon />, title: 'Home', text: 'Everything you monitor on one board, ranked so whatever is down comes first, with when it went down and why.' },
-  { icon: <TrackChangesRoundedIcon />, title: 'Targets & Profiles', text: 'Add websites (HTTP) or devices on your network (ping), group them into profiles, and set alert sounds and recovery scripts.' },
-  { icon: <AnalyticsRoundedIcon />, title: 'Analytics', text: 'Availability and every recorded outage for each target, built from its real check history.' },
-  { icon: <AssignmentRoundedIcon />, title: 'Reports', text: 'Export availability and outage reports as Markdown, plain text or PDF.' },
+  { icon: <HomeRoundedIcon />, title: 'Home', text: 'Everything you monitor on one board, ranked so whatever is down comes first, with when it went down and why. The bell lists what changed until you acknowledge it.' },
+  { icon: <TrackChangesRoundedIcon />, title: 'Targets & Profiles', text: 'Check websites (HTTP, with optional page text), devices (ping), TCP ports, DNS names and SSL certificate expiry. Group them into profiles with their own sounds and recovery scripts.' },
+  { icon: <NotificationsActiveRoundedIcon />, title: 'Alerts', text: 'Sounds and desktop notifications, plus optional emails and webhooks for Slack, Teams, Discord or your phone (ntfy), when a target goes down, recovers or gets slow.' },
+  { icon: <EngineeringRoundedIcon />, title: 'Maintenance', text: 'Plan windows for updates and restarts: checks keep running, alerts pause, and the time is left out of availability.' },
+  { icon: <AnalyticsRoundedIcon />, title: 'Analytics', text: 'Availability and every recorded outage per target, with notes on what caused it and what fixed it.' },
+  { icon: <AssignmentRoundedIcon />, title: 'Reports', text: 'Availability reports as PDF, Markdown or text, or emailed every day, week or month.' },
+  { icon: <PublicRoundedIcon />, title: 'Status page', text: 'An optional read-only page with the current state and 30 days of history, for this computer or your local network.' },
 ];
+
+const CHECK_TYPES: Record<string, { label: string; host: string; placeholder: string }> = {
+  PING: { label: 'Ping (device)', host: 'IP address or host name', placeholder: '192.168.1.20' },
+  HTTP: { label: 'HTTP (website)', host: 'URL', placeholder: 'https://example.com' },
+  TCP: { label: 'TCP port', host: 'IP address or host name', placeholder: 'nas.local' },
+  DNS: { label: 'DNS name', host: 'Domain name', placeholder: 'example.com' },
+  SSL: { label: 'SSL certificate', host: 'Domain name', placeholder: 'example.com' },
+};
 
 interface OnboardingModalProps {
   open: boolean;
@@ -46,21 +61,29 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
   const [targetName, setTargetName] = React.useState('');
   const [targetType, setTargetType] = React.useState('PING');
   const [targetHost, setTargetHost] = React.useState('');
+  const [targetPort, setTargetPort] = React.useState<number | ''>('');
   const targetTimeout = 5;
 
   const handleFinish = React.useCallback(() => {
-    const settings = {
-      startWithWindows,
-      defaultUpSound,
-      defaultDownSound,
-      logRetentionDays: 90,
-      defaultCheckInterval: checkInterval,
-    };
+    // Keep anything already set (e.g. after a reset), and add the choices made here.
+    let current: Record<string, unknown> = {};
+    try { current = JSON.parse(localStorage.getItem('uptime_sentry_settings') || '{}') as Record<string, unknown>; } catch { current = {}; }
+    const settings = { ...current, startWithWindows, defaultUpSound, defaultDownSound, defaultCheckInterval: checkInterval };
     localStorage.setItem('uptime_sentry_settings', JSON.stringify(settings));
+
+    const activeId = localStorage.getItem('uptime_sentry_active_id') || 'p_default';
+    let profileName = 'Standard Profile';
+    try {
+      // The interval asked for here is the active profile's.
+      const profiles = JSON.parse(localStorage.getItem('uptime_sentry_profiles') || '[]') as { id: string; name: string; checkInterval?: number }[];
+      profileName = profiles.find((p) => p.id === activeId)?.name ?? profileName;
+      localStorage.setItem('uptime_sentry_profiles', JSON.stringify(profiles.map((p) => (p.id === activeId ? { ...p, checkInterval } : p))));
+    } catch (e) {
+      console.error('Failed to apply the check interval', e);
+    }
 
     if (targetHost.trim()) {
       try {
-        const activeId = localStorage.getItem('uptime_sentry_active_id') || 'p_default';
         const existing = JSON.parse(localStorage.getItem('uptime_sentry_targets') || '[]') as { id?: number; profileId?: string; host?: string; type?: string }[];
         const initialTarget = {
           id: nextTargetId(existing),
@@ -72,9 +95,10 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
           recoveryAction: '',
           acceptableStatusCodes: [200, 201],
           consecutiveFailuresLimit: 2,
-          profileName: 'Default Profile',
+          profileName,
           upSound: 'default-profile',
           downSound: 'default-profile',
+          ...(targetType === 'TCP' || targetType === 'SSL' ? { port: targetPort === '' ? undefined : Number(targetPort) } : {}),
         };
         // Don't add a second copy of a target the profile already has (e.g. the default Google DNS).
         const duplicate = existing.some(
@@ -90,8 +114,9 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
     }
 
     localStorage.setItem('uptime_sentry_onboarded', 'true');
+    window.dispatchEvent(new CustomEvent('profiles-updated'));
     onClose();
-  }, [startWithWindows, defaultUpSound, defaultDownSound, checkInterval, targetHost, targetName, targetType, onClose]);
+  }, [startWithWindows, defaultUpSound, defaultDownSound, checkInterval, targetHost, targetName, targetType, targetPort, onClose]);
 
   const last = activeStep === STEPS.length - 1;
   const handleNext = React.useCallback(() => {
@@ -157,6 +182,12 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                   It tells you the moment something goes down or comes back, and can run a script to fix it.
                 </Typography>
                 <Box sx={{ pt: 2.5, mt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, mb: 2.5 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                      Moving from another computer, or starting over? Restore a backup made in Settings and skip the setup.
+                    </Typography>
+                    <ImportBackupButton label="Restore a backup…" />
+                  </Stack>
                   <Typography variant="body2" color="text.secondary">
                     Free and open source, made by <strong>Wlad Ermisch</strong>.
                   </Typography>
@@ -177,7 +208,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                 <Typography id="onboarding-title" component="h1" sx={{ fontSize: 30, fontWeight: 800, fontStretch: '72%', lineHeight: 1.1 }}>
                   Where things are
                 </Typography>
-                <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0, display: 'grid', gap: 2.5 }}>
+                <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: 3, rowGap: 2.5 }}>
                   {TOUR.map((item) => (
                     <Box component="li" key={item.title} sx={{ display: 'grid', gridTemplateColumns: '40px 1fr', gap: 2, alignItems: 'start' }}>
                       <Box sx={{ width: 40, height: 40, borderRadius: 1.5, display: 'grid', placeItems: 'center', backgroundColor: 'text.primary', color: 'background.paper', '& svg': { fontSize: 22 } }}>
@@ -239,18 +270,32 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 200px' }, gap: 2 }}>
                   <TextField label="Name" size="small" fullWidth placeholder="e.g. Home NAS" value={targetName} onChange={(e) => { setTargetName(e.target.value); }} />
                   <TextField select label="Check type" size="small" fullWidth value={targetType} onChange={(e) => { setTargetType(e.target.value); }}>
-                    <MenuItem value="PING">Ping (device)</MenuItem>
-                    <MenuItem value="HTTP">HTTP (website)</MenuItem>
+                    {Object.entries(CHECK_TYPES).map(([v, t]) => <MenuItem key={v} value={v}>{t.label}</MenuItem>)}
                   </TextField>
                 </Box>
-                <TextField
-                  label={targetType === 'HTTP' ? 'URL' : 'IP address or host name'}
-                  size="small"
-                  fullWidth
-                  placeholder={targetType === 'HTTP' ? 'https://example.com' : '192.168.1.20'}
-                  value={targetHost}
-                  onChange={(e) => { setTargetHost(e.target.value); }}
-                />
+                <Box sx={{ display: 'grid', gridTemplateColumns: targetType === 'TCP' || targetType === 'SSL' ? { xs: '1fr', sm: '1fr 140px' } : '1fr', gap: 2 }}>
+                  <TextField
+                    label={CHECK_TYPES[targetType].host}
+                    size="small"
+                    fullWidth
+                    placeholder={CHECK_TYPES[targetType].placeholder}
+                    value={targetHost}
+                    onChange={(e) => { setTargetHost(e.target.value); }}
+                  />
+                  {(targetType === 'TCP' || targetType === 'SSL') && (
+                    <TextField
+                      label="Port"
+                      type="number"
+                      size="small"
+                      placeholder={targetType === 'SSL' ? '443' : 'e.g. 22'}
+                      value={targetPort}
+                      onChange={(e) => { setTargetPort(e.target.value === '' ? '' : Number(e.target.value)); }}
+                    />
+                  )}
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  Alerts by email or webhook, maintenance windows and the status page are set up later in Settings and on the Maintenance screen.
+                </Typography>
               </Stack>
             )}
           </Box>

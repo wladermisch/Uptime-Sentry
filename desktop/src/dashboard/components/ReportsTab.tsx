@@ -18,6 +18,8 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import { Theme } from '@mui/material/styles';
 import { fonts, gray, ink, signal } from '../../shared-theme/themePrimitives';
 import { IndexHeader, Label, Tag } from './workspace';
+import ScheduledReports from './ScheduledReports';
+import { NotesMap, loadNotes } from '../serverData';
 import { CheckResult, formatClock } from '../home/boardModel';
 import {
   daysAgo, fetchHistory, formatDateTime, formatPct, formatSpan, fromDateInput, toDateInput,
@@ -161,6 +163,7 @@ export default function ReportsTab() {
   const [loading, setLoading] = React.useState(true);
   const [historyError, setHistoryError] = React.useState(false);
   const [now, setNow] = React.useState(() => new Date());
+  const [notes, setNotes] = React.useState<NotesMap>({});
 
   // Form state
   const [scope, setScope] = React.useState<'profile' | 'target'>('profile');
@@ -185,6 +188,10 @@ export default function ReportsTab() {
   React.useEffect(() => {
     try { localStorage.setItem(OPTIONS_KEY, JSON.stringify({ contents, slaChoice, slaCustom, includeRemoved })); } catch { /* storage unavailable */ }
   }, [contents, slaChoice, slaCustom, includeRemoved]);
+
+  React.useEffect(() => {
+    loadNotes().then(setNotes).catch(() => { /* no notes while the service is unreachable */ });
+  }, []);
 
   React.useEffect(() => {
     try {
@@ -273,7 +280,7 @@ export default function ReportsTab() {
     : `Profile: ${activeProfileObj?.name ?? 'none'}`;
   const periodLabel = `${fromDate} to ${toDate}`;
   const coverageNote = total && total.checks
-    ? `Availability is the share of successful checks; downtime runs from the first failed check of an outage to the next successful one. ${total.checks.toLocaleString()} checks were recorded in this period${partialCoverage && earliest ? `, the first on ${formatDateTime(earliest)}, so days before that show no data` : ''}. Settings sets how many days of history are kept.`
+    ? `Availability is the share of successful checks; downtime runs from the first failed check of an outage to the next successful one. Checks during maintenance windows are not counted. ${total.checks.toLocaleString()} checks were recorded in this period${partialCoverage && earliest ? `, the first on ${formatDateTime(earliest)}, so days before that show no data` : ''}. Settings sets how many days of history are kept.`
     : 'No checks are recorded for these targets in this period.';
 
   const toggle = (key: keyof Contents) => (e: React.ChangeEvent<HTMLInputElement>) => { setContents((c) => ({ ...c, [key]: e.target.checked })); };
@@ -333,6 +340,7 @@ export default function ReportsTab() {
         md += `- **Ended:** ${o.end ? formatDateTime(o.end) : 'ongoing'} (${formatSpan(o.durationMs)})\n`;
         md += `- **Failed checks:** ${o.failedChecks.length}\n`;
         md += `- **Cause:** ${o.failedChecks[o.failedChecks.length - 1].message || 'Check failed'}\n`;
+        for (const n of notes[o.id] ?? []) md += `- **Note:** ${n.text.replace(/\n+/g, ' ')}\n`;
         if (contents.checkLog) {
           for (const c of [...o.failedChecks, ...(o.recovery ? [o.recovery] : [])]) {
             md += `  - ${formatClock(c.timestamp)} ${c.success ? 'UP' : 'DOWN'} — ${c.message || (c.success ? 'ok' : 'failed')}\n`;
@@ -544,6 +552,10 @@ export default function ReportsTab() {
                 Export plain text (.txt)
               </Button>
             </Stack>
+
+            <Box sx={{ borderTop: '1px dashed', borderColor: 'divider', pt: 2 }}>
+              <ScheduledReports profiles={profiles} targets={targets} defaultSla={sla} />
+            </Box>
           </Stack>
         </Box>
       </Box>
@@ -742,10 +754,15 @@ export default function ReportsTab() {
                         <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
                           Cause: {o.failedChecks[o.failedChecks.length - 1].message || 'Check failed'} · {o.failedChecks.length} failed {o.failedChecks.length === 1 ? 'check' : 'checks'}
                         </Typography>
+                        {(notes[o.id] ?? []).map((n) => (
+                          <Typography key={n.time} variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap', borderLeft: '2px solid', borderColor: 'divider', pl: 1 }}>
+                            {n.text}
+                          </Typography>
+                        ))}
                         {contents.checkLog && (
                           <Box component="ol" sx={{ listStyle: 'none', m: 0, mt: 1, p: 0 }}>
-                            {[...o.failedChecks, ...(o.recovery ? [o.recovery] : [])].map((c) => (
-                              <Box component="li" key={c.timestamp} sx={{ ...mono, fontSize: 12, display: 'grid', gridTemplateColumns: '76px 52px 1fr', gap: 1 }}>
+                            {[...o.failedChecks, ...(o.recovery ? [o.recovery] : [])].map((c, i) => (
+                              <Box component="li" key={`${i}-${c.timestamp}`} sx={{ ...mono, fontSize: 12, display: 'grid', gridTemplateColumns: '76px 52px 1fr', gap: 1 }}>
                                 <span>{formatClock(c.timestamp)}</span>
                                 <span>{c.success ? 'UP' : 'DOWN'}</span>
                                 <Box component="span" sx={{ color: 'text.secondary', overflowWrap: 'anywhere' }}>{c.message}</Box>

@@ -22,13 +22,42 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Shell colors that follow the color scheme: the rail and the header bands of lists and tables. */
 :root {
-  --board-head-bg: #0B0D10;
-  --board-head-rule: #1C1F24;
+  --board-head-bg: #ECEDEF;
+  --board-head-rule: #C8CBD0;
+  --board-head-ink: #0B0D10;
+  --board-head-muted: #4A4F56;
+  --board-head-faint: #6B7178;
+  --board-head-hover: rgba(11, 13, 16, 0.07);
+
+  --rail-bg: #FFFFFF;
+  --rail-rule: #C8CBD0;
+  --rail-ink: #4A4F56;
+  --rail-hover-bg: #ECEDEF;
+  --rail-hover-ink: #0B0D10;
+  --rail-active-bg: #0B0D10;
+  --rail-active-ink: #F2F2EE;
+  --rail-brand: #0B0D10;
+  --rail-brand-ink: #F2F2EE;
 }
 [data-mui-color-scheme="dark"] {
   --board-head-bg: #16181C;
   --board-head-rule: #2A2D33;
+  --board-head-ink: #F2F2EE;
+  --board-head-muted: #9A9FA6;
+  --board-head-faint: #6B7178;
+  --board-head-hover: rgba(242, 242, 238, 0.08);
+
+  --rail-bg: #0B0D10;
+  --rail-rule: #1C1F24;
+  --rail-ink: #9A9FA6;
+  --rail-hover-bg: #1C1F24;
+  --rail-hover-ink: #F2F2EE;
+  --rail-active-bg: #F2F2EE;
+  --rail-active-ink: #0B0D10;
+  --rail-brand: #F2F2EE;
+  --rail-brand-ink: #0B0D10;
 }
 
 [data-mui-color-scheme="dark"] body {

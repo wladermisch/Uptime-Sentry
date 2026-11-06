@@ -63,9 +63,9 @@ function Segment({ children, first }: { children: React.ReactNode; first?: boole
 
 /** Recent checks as a strip: bar height is latency on a log scale, a failed check is a full red bar. */
 function CheckStrip({ row }: { row: BoardRow }) {
-  const checks = row.recent;
-  const max = Math.max(1, ...checks.filter((c) => c.success).map((c) => c.durationMillis));
   const slots = 48;
+  const checks = row.recent.slice(-slots);
+  const max = Math.max(1, ...checks.filter((c) => c.success).map((c) => c.durationMillis));
   const pad = Math.max(0, slots - checks.length);
   return (
     <Box
@@ -74,13 +74,15 @@ function CheckStrip({ row }: { row: BoardRow }) {
       sx={{ display: 'grid', gridTemplateColumns: `repeat(${slots}, 1fr)`, gap: '2px', alignItems: 'end', height: 44, mt: 1.25 }}
     >
       {Array.from({ length: pad }).map((_, i) => (
-        <Box key={`p${i}`} sx={{ height: 2, backgroundColor: 'divider' }} />
+        <Box key={`slot-${i}`} sx={{ height: 2, backgroundColor: 'divider' }} />
       ))}
-      {checks.map((c) => {
+      {checks.map((c, i) => {
         const h = c.success ? 18 + 82 * (Math.log1p(Math.max(0, c.durationMillis)) / Math.log1p(max)) : 100;
         return (
+          // Keyed by slot: several checks can share a timestamp (a manual check in the same second as an
+          // automatic one), and duplicate keys made React leave old bars behind.
           <Tooltip
-            key={c.timestamp + c.targetId}
+            key={`slot-${pad + i}`}
             title={`${formatClock(c.timestamp)} · ${c.success ? `${c.durationMillis} ms` : c.message || 'failed'}`}
             disableInteractive
           >

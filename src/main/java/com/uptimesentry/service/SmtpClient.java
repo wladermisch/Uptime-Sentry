@@ -43,6 +43,11 @@ public final class SmtpClient {
 
     /** Sends one message to all recipients. Throws with the server's reply when anything is refused. */
     public static void send(Server server, List<String> recipients, String subject, String body) throws IOException {
+        send(server, recipients, subject, body, null);
+    }
+
+    /** Sends a message with a plain-text body and, when {@code html} is given, an HTML version of it. */
+    public static void send(Server server, List<String> recipients, String subject, String body, String html) throws IOException {
         if (server.host() == null || server.host().isBlank()) throw new IOException("No mail server is set up in Settings.");
         if (server.from() == null || !ADDRESS.matcher(server.from().trim()).matches()) throw new IOException("The sender address in Settings is not a valid email address.");
         List<String> to = new ArrayList<>();
@@ -53,13 +58,13 @@ public final class SmtpClient {
 
         SmtpClient c = new SmtpClient();
         try {
-            c.session(server, to, subject, body);
+            c.session(server, to, subject, body, html);
         } finally {
             c.close();
         }
     }
 
-    private void session(Server s, List<String> to, String subject, String body) throws IOException {
+    private void session(Server s, List<String> to, String subject, String body, String html) throws IOException {
         String security = s.security() == null ? "STARTTLS" : s.security().toUpperCase(Locale.ROOT);
         String host = s.host().trim();
         if ("SSL".equals(security)) {
@@ -101,7 +106,7 @@ public final class SmtpClient {
         }
         if (refused.size() == to.size()) throw new IOException("The mail server refused every recipient: " + String.join(", ", refused));
         command("DATA", 354);
-        write(message(s, to, subject, body));
+        write(message(s, to, subject, body, html));
         expect(250, read());
         try {
             commandRaw("QUIT");
@@ -165,7 +170,7 @@ public final class SmtpClient {
         }
     }
 
-    private static String message(Server s, List<String> to, String subject, String body) {
+    private static String message(Server s, List<String> to, String subject, String body, String html) {
         String domain = s.from().substring(s.from().indexOf('@') + 1).trim();
         StringBuilder m = new StringBuilder();
         m.append("Date: ").append(ZonedDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME)).append("\r\n");
@@ -175,15 +180,27 @@ public final class SmtpClient {
         m.append("Subject: ").append(encodeWord(oneLine(subject))).append("\r\n");
         m.append("Message-ID: <").append(UUID.randomUUID()).append('@').append(domain).append(">\r\n");
         m.append("MIME-Version: 1.0\r\n");
-        m.append("Content-Type: text/plain; charset=UTF-8\r\n");
-        m.append("Content-Transfer-Encoding: base64\r\n");
         m.append("X-Mailer: Uptime Sentry\r\n");
-        m.append("\r\n");
-        String normalized = body.replace("\r\n", "\n").replace("\n", "\r\n");
         // Base64 lines never start with ".", so no dot-stuffing is needed.
-        m.append(Base64.getMimeEncoder(76, "\r\n".getBytes(StandardCharsets.US_ASCII)).encodeToString(normalized.getBytes(StandardCharsets.UTF_8)));
+        if (html == null) {
+            m.append(part("text/plain", body));
+        } else {
+            String boundary = "=_us_" + UUID.randomUUID().toString().replace("-", "");
+            m.append("Content-Type: multipart/alternative; boundary=\"").append(boundary).append("\"\r\n\r\n");
+            m.append("--").append(boundary).append("\r\n").append(part("text/plain", body)).append("\r\n");
+            m.append("--").append(boundary).append("\r\n").append(part("text/html", html)).append("\r\n");
+            m.append("--").append(boundary).append("--");
+        }
         m.append("\r\n.\r\n");
         return m.toString();
+    }
+
+    /** Headers and base64 body of one text part. */
+    private static String part(String type, String text) {
+        String normalized = text.replace("\r\n", "\n").replace("\n", "\r\n");
+        return "Content-Type: " + type + "; charset=UTF-8\r\n"
+            + "Content-Transfer-Encoding: base64\r\n\r\n"
+            + Base64.getMimeEncoder(76, "\r\n".getBytes(StandardCharsets.US_ASCII)).encodeToString(normalized.getBytes(StandardCharsets.UTF_8));
     }
 
     /** Removes line breaks so user text can't add mail headers. */

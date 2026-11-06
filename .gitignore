@@ -70,3 +70,11 @@ dev.ps1
 .dev-data/
 
 PRODUCT.md
+
+# Data the monitoring service keeps when run from the repo folder
+/maintenance.json
+/webhooks.json
+/schedules.json
+/notes.json
+*.json.tmp
+

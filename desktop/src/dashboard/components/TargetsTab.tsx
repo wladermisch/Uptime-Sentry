@@ -36,7 +36,7 @@ interface Target {
   id?: number;
   profileId: string;
   name: string;
-  type: string; // HTTP or PING
+  type: string; // HTTP, PING, TCP, DNS or SSL
   host: string;
   timeout: number;
   recoveryAction: string;
@@ -51,7 +51,20 @@ interface Target {
   keywordRule?: string; // MUST_CONTAIN, MUST_NOT_CONTAIN, DISABLED
   paused?: boolean;
   email?: EmailRule;
+  port?: number;
+  dnsExpected?: string;
+  sslWarnDays?: number;
+  slowAlertAfter?: number;
 }
+
+/** What each check type asks for. */
+const CHECK_TYPES: Record<string, { label: string; host: string; placeholder: string; help: string }> = {
+  HTTP: { label: 'HTTP(S) · website or API', host: 'URL', placeholder: 'https://example.com', help: 'Up when the page answers with an accepted status code (and, optionally, contains some text).' },
+  PING: { label: 'Ping · server or device', host: 'IP address or hostname', placeholder: '192.168.1.1', help: 'Up when the device answers a ping.' },
+  TCP: { label: 'TCP port · database, mail, SSH…', host: 'IP address or hostname', placeholder: 'db.example.com', help: 'Up when a connection to the port opens. Good for services without a web page.' },
+  DNS: { label: 'DNS · name resolution', host: 'Domain name', placeholder: 'example.com', help: "Up when the name resolves through this computer's DNS, optionally to the addresses you expect." },
+  SSL: { label: 'SSL certificate · expiry', host: 'Domain name', placeholder: 'example.com', help: 'Checks the HTTPS certificate is trusted and matches the name, and warns before it expires.' },
+};
 
 export default function TargetsTab() {
   const [activeProfile, setActiveProfile] = React.useState<Profile | null>(null);
@@ -77,6 +90,10 @@ export default function TargetsTab() {
   const [keywordRule, setKeywordRule] = React.useState('DISABLED');
   const [paused, setPaused] = React.useState(false);
   const [email, setEmail] = React.useState<EmailRule>(INHERIT_RULE);
+  const [port, setPort] = React.useState<number | ''>('');
+  const [dnsExpected, setDnsExpected] = React.useState('');
+  const [sslWarnDays, setSslWarnDays] = React.useState(14);
+  const [slowAlertAfter, setSlowAlertAfter] = React.useState(0);
   // Re-read when Settings is saved, so the summary matches what applies now.
   const appEmail = React.useMemo(() => readAppEmailSettings(), [caps.emailOn, caps.emailReady]);
 
@@ -88,7 +105,7 @@ export default function TargetsTab() {
     message: string;
   } | null>(null);
 
-  const runLiveTest = React.useCallback(async (targetHost: string, targetType: string, timeLimit: number, statusCodes: string) => {
+  const runLiveTest = React.useCallback(async (targetHost: string, targetType: string, timeLimit: number, statusCodes: string, extra: Partial<Target> = {}) => {
     // Nothing to test until a host is typed (a new target starts with just "https://").
     if (!targetHost.trim() || /^https?:\/\/$/i.test(targetHost.trim())) {
       setDryRunResult(null);
@@ -105,6 +122,7 @@ export default function TargetsTab() {
           host: targetHost,
           timeout: timeLimit,
           acceptableStatusCodes: parsedOk.length > 0 ? parsedOk : [200],
+          ...extra,
         }),
       });
 
@@ -156,8 +174,14 @@ export default function TargetsTab() {
     setKeywordRule(t.keywordRule || 'DISABLED');
     setPaused(!!t.paused);
     setEmail(t.email ?? INHERIT_RULE);
+    setPort(t.port || '');
+    setDnsExpected(t.dnsExpected ?? '');
+    setSslWarnDays(t.sslWarnDays ?? 14);
+    setSlowAlertAfter(t.slowAlertAfter ?? 0);
 
-    void runLiveTest(t.host, t.type, t.timeout, t.acceptableStatusCodes?.join(', ') || '200');
+    void runLiveTest(t.host, t.type, t.timeout, t.acceptableStatusCodes?.join(', ') || '200', {
+      port: t.port, dnsExpected: t.dnsExpected, sslWarnDays: t.sslWarnDays, keyword: t.keyword, keywordRule: t.keywordRule,
+    });
   };
 
   const loadActiveProfileAndTargets = React.useCallback(() => {
@@ -206,14 +230,19 @@ export default function TargetsTab() {
     };
   }, [loadActiveProfileAndTargets]);
 
-  // Fast 500ms Debounced Typing Verification
+  const liveExtra = React.useMemo<Partial<Target>>(
+    () => ({ port: port === '' ? 0 : port, dnsExpected, sslWarnDays, keyword, keywordRule }),
+    [port, dnsExpected, sslWarnDays, keyword, keywordRule],
+  );
+
+  // Re-test half a second after the last change.
   React.useEffect(() => {
     if (!host.trim()) return;
     const timer = setTimeout(() => {
-      void runLiveTest(host, type, timeout, statusCodesStr);
+      void runLiveTest(host, type, timeout, statusCodesStr, liveExtra);
     }, 500);
     return () => { clearTimeout(timer); };
-  }, [host, type, timeout, statusCodesStr, runLiveTest]);
+  }, [host, type, timeout, statusCodesStr, liveExtra, runLiveTest]);
 
   const handleSelectTarget = (t: Target) => {
     setSelectedId(t.id || null);
@@ -242,6 +271,10 @@ export default function TargetsTab() {
     setKeywordRule('DISABLED');
     setPaused(false);
     setEmail(INHERIT_RULE);
+    setPort('');
+    setDnsExpected('');
+    setSslWarnDays(14);
+    setSlowAlertAfter(0);
     setDryRunResult(null);
   };
 
@@ -282,6 +315,10 @@ export default function TargetsTab() {
               keywordRule,
               paused,
               email,
+              port: port === '' ? undefined : Number(port),
+              dnsExpected,
+              sslWarnDays: Number(sslWarnDays),
+              slowAlertAfter: Number(slowAlertAfter),
             }
           : t
       );
@@ -306,6 +343,10 @@ export default function TargetsTab() {
         keywordRule,
         paused,
         email,
+        port: port === '' ? undefined : Number(port),
+        dnsExpected,
+        sslWarnDays: Number(sslWarnDays),
+        slowAlertAfter: Number(slowAlertAfter),
       };
       updatedTargets = [...targets, newTarget];
       setSelectedId(newTarget.id!);
@@ -479,30 +520,74 @@ export default function TargetsTab() {
                 fullWidth
                 required
                 value={type}
-                onChange={(e) => { setType(e.target.value); }}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  // Moving between URL and host-name types: drop the scheme so the field fits.
+                  if (next !== 'HTTP' && /^https?:\/\//i.test(host)) setHost(host.replace(/^https?:\/\//i, '').replace(/\/.*$/, ''));
+                  if (next === 'HTTP' && host && !/^https?:\/\//i.test(host)) setHost(`https://${host}`);
+                  setType(next);
+                }}
               >
-                <MenuItem value="HTTP">HTTP(S) · website or API</MenuItem>
-                <MenuItem value="PING">Ping · server or device</MenuItem>
+                {Object.entries(CHECK_TYPES).map(([value, t]) => <MenuItem key={value} value={value}>{t.label}</MenuItem>)}
               </TextField>
             </FieldGrid>
-            <TextField
-              sx={{ mt: 2.5 }}
-              label={type === 'HTTP' ? 'URL' : 'IP address or hostname'}
-              placeholder={type === 'HTTP' ? 'https://example.com' : '192.168.1.1'}
-              size="small"
-              fullWidth
-              required
-              value={host}
-              onChange={(e) => { setHost(e.target.value); }}
-              slotProps={{ htmlInput: { style: { fontFamily: mono.fontFamily } } }}
-            />
+            <Box sx={{ mt: 2.5, display: 'grid', gridTemplateColumns: type === 'TCP' || type === 'SSL' ? { xs: '1fr', sm: '1fr 140px' } : '1fr', gap: 2.5 }}>
+              <TextField
+                label={(CHECK_TYPES[type] ?? CHECK_TYPES.HTTP).host}
+                placeholder={(CHECK_TYPES[type] ?? CHECK_TYPES.HTTP).placeholder}
+                size="small"
+                fullWidth
+                required
+                value={host}
+                onChange={(e) => { setHost(e.target.value); }}
+                helperText={(CHECK_TYPES[type] ?? CHECK_TYPES.HTTP).help}
+                slotProps={{ htmlInput: { style: { fontFamily: mono.fontFamily } } }}
+              />
+              {(type === 'TCP' || type === 'SSL') && (
+                <TextField
+                  label="Port"
+                  type="number"
+                  size="small"
+                  required={type === 'TCP'}
+                  placeholder={type === 'SSL' ? '443' : 'e.g. 5432'}
+                  value={port}
+                  onChange={(e) => { setPort(e.target.value === '' ? '' : Number(e.target.value)); }}
+                  slotProps={{ htmlInput: { min: 1, max: 65535 } }}
+                />
+              )}
+            </Box>
+            {type === 'DNS' && (
+              <TextField
+                sx={{ mt: 2.5 }}
+                label="Expected addresses (optional)"
+                placeholder="e.g. 93.184.215.14, 2606:2800::1"
+                size="small"
+                fullWidth
+                value={dnsExpected}
+                onChange={(e) => { setDnsExpected(e.target.value); }}
+                helperText="Counts as down if the name resolves to none of these. Leave empty to accept any answer."
+                slotProps={{ htmlInput: { style: { fontFamily: mono.fontFamily } } }}
+              />
+            )}
+            {type === 'SSL' && (
+              <TextField
+                sx={{ mt: 2.5, maxWidth: 280 }}
+                label="Warn days before expiry"
+                type="number"
+                size="small"
+                value={sslWarnDays}
+                onChange={(e) => { setSslWarnDays(Math.max(0, Number(e.target.value))); }}
+                helperText="Counts as down from this many days before the certificate expires."
+                slotProps={{ htmlInput: { min: 0, max: 365 } }}
+              />
+            )}
           </PassSection>
 
           <PassSection
             label="Live test"
             hint="Runs the check with the values above as you type. Nothing is saved or recorded."
             aside={
-              <Button variant="text" size="small" disabled={checking || !host.trim()} onClick={() => { void runLiveTest(host, type, timeout, statusCodesStr); }}>
+              <Button variant="text" size="small" disabled={checking || !host.trim()} onClick={() => { void runLiveTest(host, type, timeout, statusCodesStr, liveExtra); }}>
                 Run again
               </Button>
             }
@@ -577,6 +662,27 @@ export default function TargetsTab() {
                 slotProps={{ htmlInput: { min: 1 } }}
               />
             </FieldGrid>
+            <Box sx={{ mt: 2.5, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'auto 1fr' }, gap: 2, alignItems: 'start' }}>
+              <FormControlLabel
+                sx={{ ml: -1, mr: 0 }}
+                control={<Switch size="small" checked={slowAlertAfter > 0} onChange={(e) => { setSlowAlertAfter(e.target.checked ? 3 : 0); }} />}
+                label={<Box component="span" sx={{ fontSize: 14 }}>Alert when it gets slow</Box>}
+              />
+              {slowAlertAfter > 0 ? (
+                <TextField
+                  label="Slow checks in a row before alerting"
+                  type="number"
+                  size="small"
+                  value={slowAlertAfter}
+                  onChange={(e) => { setSlowAlertAfter(Math.max(1, Number(e.target.value) || 1)); }}
+                  helperText={`Alerts after ${slowAlertAfter} ${slowAlertAfter === 1 ? 'check' : 'checks in a row'} over ${degradedLatency} ms, and again when it is fast. Slow isn't counted as downtime.`}
+                  slotProps={{ htmlInput: { min: 1, max: 100 } }}
+                  sx={{ maxWidth: 320 }}
+                />
+              ) : (
+                <Box sx={{ fontSize: 12.5, color: 'text.secondary', pt: 0.75 }}>Off: slow responses only show on the board.</Box>
+              )}
+            </Box>
             {type === 'HTTP' && (
               <Box sx={{ mt: 2.5 }}>
                 <FieldGrid>
@@ -671,7 +777,7 @@ export default function TargetsTab() {
           </PassSection>
 
           <PassFooter>
-            <Button type="submit" variant="contained" size="small" disabled={!name.trim() || !host.trim()}>
+            <Button type="submit" variant="contained" size="small" disabled={!name.trim() || !host.trim() || (type === 'TCP' && !port)}>
               {isNew ? 'Add target' : 'Save target'}
             </Button>
             {isNew && (

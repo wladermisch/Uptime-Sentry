@@ -33,6 +33,14 @@ public class NotificationService {
         playSoundAlert(target, "up");
     }
 
+    /** Response time alerts: a tray message only, no sound (the target is still up). */
+    public void notifySpeed(Alert alert) {
+        MonitoredTarget target = alert.target();
+        boolean slow = Alert.SLOW.equals(alert.kind());
+        sendNotification(getTitlePrefix(target) + (slow ? "Target slow" : "Target fast again"),
+            alert.headline() + " (" + alert.responseMs() + " ms).", slow ? TrayIcon.MessageType.WARNING : TrayIcon.MessageType.INFO);
+    }
+
     public void notifyOffline(MonitoredTarget target) {
         sendNotification(getTitlePrefix(target) + "Target offline", target.getName() + " is offline.", TrayIcon.MessageType.WARNING);
         playSoundAlert(target, "down");

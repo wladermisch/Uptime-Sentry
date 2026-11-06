@@ -19,6 +19,10 @@ public class CheckResult {
     private final String targetType;
     private final String host;
     private final String profileName;
+    /** The alert this check set off (DOWN, UP, SLOW or NORMAL), or null. */
+    private String alert;
+    /** True when the check ran during a maintenance window (no alerts; left out of availability). Null otherwise. */
+    private Boolean maintenance;
 
     //Constructor for creating a new CheckResult
     public CheckResult(int targetId, String targetName, String timestamp, boolean success, long durationMillis, String message) {
@@ -79,6 +83,26 @@ public class CheckResult {
 
     public String getProfileName() {
         return profileName;
+    }
+
+    public String getAlert() {
+        return alert;
+    }
+
+    public void setAlert(String alert) {
+        this.alert = alert;
+    }
+
+    public Boolean getMaintenance() {
+        return maintenance;
+    }
+
+    public void setMaintenance(boolean maintenance) {
+        this.maintenance = maintenance ? Boolean.TRUE : null;
+    }
+
+    public boolean inMaintenance() {
+        return Boolean.TRUE.equals(maintenance);
     }
 
     //Provide a toString() method for easy logging and debugging

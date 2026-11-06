@@ -7,6 +7,11 @@ import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogActions from '@mui/material/DialogActions';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import { FieldGrid, Pass, PassFooter, PassHead, PassSection } from './workspace';
 import Stack from '@mui/material/Stack';
@@ -18,6 +23,9 @@ import { requestSync } from '../backendSync';
 import { RecipientsInput, SmtpDraft, TemplateFields, TestEmailButton } from './EmailAlertFields';
 import { LocalOnlyNote, SETTINGS_SAVED } from './AppGate';
 import { AddSoundButton, SoundSelect, previewSound, useSoundLibrary } from './SoundPicker';
+import WebhooksSection from './WebhooksSection';
+import StatusPageSection from './StatusPageSection';
+import { ExportBackupButton, ImportBackupButton } from './BackupControls';
 
 interface Settings {
   startWithWindows: boolean;
@@ -341,6 +349,8 @@ export default function SettingsTab() {
         </>
       )}
 
+      <WebhooksSection />
+
       {settings.playSoundAlert && (
         <PassSection label="Sounds" aside={<AddSoundButton />}>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
@@ -404,6 +414,10 @@ export default function SettingsTab() {
         </Typography>
       </SettingsSection>
 
+      <StatusPageSection />
+
+      <DataSection storage={storage} onCleared={loadStorage} />
+
       <PassFooter>
         <Button type="submit" variant="contained" size="small" startIcon={saved ? <CheckRoundedIcon /> : undefined}>
           {saved ? 'Saved' : 'Save settings'}
@@ -431,6 +445,128 @@ function SettingsOption({ checked, onChange, label, help }: { checked: boolean; 
         </Typography>
       )}
     </Box>
+  );
+}
+
+type Danger = 'history' | 'reset';
+
+const DANGER_TEXT: Record<Danger, { title: string; body: string[]; confirm: string }> = {
+  history: {
+    title: 'Clear check history?',
+    body: [
+      'Deletes every recorded check on this computer. Analytics, reports and the uptime figures on Home start from zero.',
+      'Targets, profiles and settings stay as they are. This can’t be undone.',
+    ],
+    confirm: 'Clear history',
+  },
+  reset: {
+    title: 'Reset Uptime Sentry?',
+    body: [
+      'Returns the app to a fresh install. This deletes all profiles and targets, the check history, all settings including the mail server and its saved password, maintenance windows, webhooks, scheduled reports, outage notes and the sounds you added.',
+      'The app restarts with the setup assistant. This can’t be undone.',
+    ],
+    confirm: 'Reset everything',
+  },
+};
+
+/** Clear history and full reset, each behind a confirmation. */
+function DataSection({ storage, onCleared }: { storage: { checks: number } | null; onCleared: () => void }) {
+  const [confirm, setConfirm] = React.useState<Danger | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [done, setDone] = React.useState<string | null>(null);
+
+  const run = async (what: Danger) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch(`${API}${what === 'history' ? '/api/history' : '/api/reset'}`, { method: what === 'history' ? 'DELETE' : 'POST' });
+      if (!r.ok) throw new Error(String(r.status));
+      if (what === 'reset') {
+        // Everything the window keeps: profiles, targets, settings, acknowledgements, report options.
+        try {
+          Object.keys(localStorage).filter((k) => k.startsWith('uptime_sentry')).forEach((k) => { localStorage.removeItem(k); });
+        } catch {
+          // Storage unavailable: nothing to remove.
+        }
+        window.location.reload();
+        return;
+      }
+      try { localStorage.removeItem('uptime_sentry_board_ack'); } catch { /* storage unavailable */ }
+      window.dispatchEvent(new CustomEvent('history-cleared'));
+      onCleared();
+      setDone('History cleared.');
+      setConfirm(null);
+    } catch {
+      setError('Can’t reach the monitoring service at 127.0.0.1:8765, so nothing was deleted.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const text = confirm ? DANGER_TEXT[confirm] : null;
+  return (
+    <PassSection label="Data">
+      <Stack spacing={2}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+          <Box>
+            <Typography sx={{ fontSize: 14, fontWeight: 600 }}>Backup</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Save everything to one file, or restore from one: for a new computer, or before trying something out.
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+            <ExportBackupButton />
+            <ImportBackupButton />
+          </Stack>
+        </Stack>
+        <DangerRow
+          title="Clear check history"
+          help={storage ? `Deletes the ${storage.checks.toLocaleString()} recorded checks. Targets and settings stay.` : 'Deletes all recorded checks. Targets and settings stay.'}
+          action="Clear history"
+          disabled={storage?.checks === 0}
+          onClick={() => { setDone(null); setError(null); setConfirm('history'); }}
+        />
+        <DangerRow
+          title="Reset application"
+          help="Deletes all profiles, targets, history, settings, maintenance, webhooks, scheduled reports, notes and added sounds, as if freshly installed."
+          action="Reset…"
+          onClick={() => { setDone(null); setError(null); setConfirm('reset'); }}
+        />
+        {done && <Typography variant="body2" role="status">{done}</Typography>}
+      </Stack>
+      <Dialog open={!!confirm} onClose={() => { if (!busy) setConfirm(null); }} maxWidth="xs" fullWidth>
+        {text && (
+          <>
+            <DialogTitle sx={{ fontSize: 18, fontWeight: 700 }}>{text.title}</DialogTitle>
+            <DialogContent>
+              {text.body.map((p) => <DialogContentText key={p} sx={{ mb: 1.5, fontSize: 14 }}>{p}</DialogContentText>)}
+              {error && <Typography variant="body2" role="alert" sx={{ color: 'error.main' }}>{error}</Typography>}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2.5 }}>
+              <Button size="small" onClick={() => { setConfirm(null); }} disabled={busy} autoFocus>Cancel</Button>
+              <Button size="small" variant="contained" color="error" onClick={() => { if (confirm) void run(confirm); }} disabled={busy}>
+                {busy ? 'Working…' : text.confirm}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+    </PassSection>
+  );
+}
+
+function DangerRow({ title, help, action, onClick, disabled }: { title: string; help: string; action: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+      <Box>
+        <Typography sx={{ fontSize: 14, fontWeight: 600 }}>{title}</Typography>
+        <Typography variant="caption" color="text.secondary">{help}</Typography>
+      </Box>
+      <Button size="small" variant="outlined" color="error" onClick={onClick} disabled={disabled} sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', sm: 'center' } }}>
+        {action}
+      </Button>
+    </Stack>
   );
 }
 

@@ -2,7 +2,7 @@ import * as React from 'react';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import { navItems, secondaryNavItems, navigate } from '../nav';
-import { fonts, gray, ink, paper, signal } from '../../shared-theme/themePrimitives';
+import { fonts, signal } from '../../shared-theme/themePrimitives';
 
 function RailItem(props: {
   item: { text: string; value: string; icon: React.ReactNode };
@@ -18,18 +18,18 @@ function RailItem(props: {
         aria-label={label}
         sx={{
           position: 'relative',
-          width: 64,
+          width: 72,
           py: 1,
           borderRadius: 1.5,
           display: 'flex',
           flexDirection: 'column',
           gap: 0.5,
-          color: active ? ink : gray[400],
-          backgroundColor: active ? paper : 'transparent',
+          color: active ? 'var(--rail-active-ink)' : 'var(--rail-ink)',
+          backgroundColor: active ? 'var(--rail-active-bg)' : 'transparent',
           transition: 'background-color 160ms ease-out, color 160ms ease-out',
           '& svg': { fontSize: 22 },
-          '&:hover': { color: active ? ink : paper, backgroundColor: active ? paper : gray[800] },
-          '&:focus-visible': { outline: `2px solid ${paper}`, outlineOffset: 2 },
+          '&:hover': active ? {} : { color: 'var(--rail-hover-ink)', backgroundColor: 'var(--rail-hover-bg)' },
+          '&:focus-visible': { outline: '2px solid var(--rail-hover-ink)', outlineOffset: 2 },
         }}
       >
         {item.icon}

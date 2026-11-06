@@ -1,6 +1,6 @@
 import * as React from 'react';
 import {
-  AckMap, BoardRow, CheckResult, Profile, Target,
+  ACKS_CHANGED, AckMap, BoardRow, CheckResult, Profile, Target,
   deriveRow, loadAcks, rankRows, saveAcks,
 } from './boardModel';
 
@@ -71,12 +71,19 @@ export function useBoard() {
     void reload();
     const poll = setInterval(() => { void reload(); }, POLL_MS);
     const onProfile = () => { void reload(); };
+    // Acknowledged from the notification bell, or history cleared in Settings.
+    const onAcks = () => { setAcks(loadAcks()); };
+    const onCleared = () => { setAcks(loadAcks()); void reload(); };
     window.addEventListener('profile-changed', onProfile);
     window.addEventListener('profiles-updated', onProfile);
+    window.addEventListener(ACKS_CHANGED, onAcks);
+    window.addEventListener('history-cleared', onCleared);
     return () => {
       clearInterval(poll);
       window.removeEventListener('profile-changed', onProfile);
       window.removeEventListener('profiles-updated', onProfile);
+      window.removeEventListener(ACKS_CHANGED, onAcks);
+      window.removeEventListener('history-cleared', onCleared);
     };
   }, [reload]);
 
@@ -86,7 +93,8 @@ export function useBoard() {
   );
 
   const summary = React.useMemo(() => ({
-    down: rows.filter((r) => r.state === 'down').length,
+    down: rows.filter((r) => r.state === 'down' && !r.maintenance).length,
+    maintenance: rows.filter((r) => r.maintenance).length,
     recovered: rows.filter((r) => r.recovered).length,
     pending: rows.filter((r) => r.state === 'pending').length,
     up: rows.filter((r) => r.state === 'up').length,
@@ -138,15 +146,13 @@ export function useBoard() {
   }, [targets, runCheck, reload]);
 
   const acknowledge = React.useCallback((ids: number[]) => {
-    setAcks((prev) => {
-      const next = { ...prev };
-      for (const id of ids) {
-        const row = rows.find((r) => r.target.id === id);
-        if (row?.since) next[String(id)] = row.since;
-      }
-      saveAcks(next);
-      return next;
-    });
+    const next = { ...loadAcks() };
+    for (const id of ids) {
+      const row = rows.find((r) => r.target.id === id);
+      if (row?.since && (next[String(id)] ?? '') < row.since) next[String(id)] = row.since;
+    }
+    setAcks(next);
+    saveAcks(next);
   }, [rows]);
 
   const setAutoCheckRunning = React.useCallback(async (running: boolean) => {

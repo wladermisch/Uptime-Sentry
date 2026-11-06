@@ -18,6 +18,9 @@ public class SettingsController {
     private static final ObjectMapper MAPPER = new ObjectMapper()
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+    /** Runs after settings are saved (the status page server follows its settings). */
+    static Runnable onSaved = () -> { };
+
     /** GET /api/settings. The mail password is never sent back; smtpPasswordSet says whether one is stored. */
     public void getSettings(Context ctx) {
         AppSettings s = SettingsRepository.loadSettings();
@@ -43,9 +46,11 @@ public class SettingsController {
                 SecretStore.put(SecretStore.SMTP_PASSWORD, pw.isNull() ? null : pw.asText());
             }
             updated.historyRetentionDays = Math.max(1, Math.min(updated.historyRetentionDays, 3650));
+            updated.statusPagePort = Math.max(1024, Math.min(updated.statusPagePort, 65535));
             if (updated.smtpSecurity == null) updated.smtpSecurity = "STARTTLS";
             SettingsRepository.saveSettings(updated);
             HistoryRepository.prune();
+            onSaved.run();
             getSettings(ctx);
         } catch (Exception e) {
             ctx.status(400).result("Invalid settings format: " + e.getMessage());

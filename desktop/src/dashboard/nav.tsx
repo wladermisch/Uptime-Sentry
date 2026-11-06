@@ -7,13 +7,15 @@ import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
 import HelpRoundedIcon from '@mui/icons-material/HelpRounded';
 import ChecklistRoundedIcon from '@mui/icons-material/ChecklistRounded';
 import TrackChangesRoundedIcon from '@mui/icons-material/TrackChangesRounded';
+import EngineeringRoundedIcon from '@mui/icons-material/EngineeringRounded';
 
 export const navItems = [
   { text: 'Home', value: 'home', icon: <HomeRoundedIcon /> },
-  { text: 'Profiles', value: 'profiles', icon: <ChecklistRoundedIcon /> },
-  { text: 'Targets', value: 'targets', icon: <TrackChangesRoundedIcon /> },
+  { text: 'Maintenance', value: 'maintenance', icon: <EngineeringRoundedIcon /> },
   { text: 'Analytics', value: 'analytics', icon: <AnalyticsRoundedIcon /> },
   { text: 'Reports', value: 'reports', icon: <AssignmentRoundedIcon /> },
+  { text: 'Targets', value: 'targets', icon: <TrackChangesRoundedIcon /> },
+  { text: 'Profiles', value: 'profiles', icon: <ChecklistRoundedIcon /> },
 ];
 
 export const secondaryNavItems = [

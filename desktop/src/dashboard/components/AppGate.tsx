@@ -19,6 +19,9 @@ export interface AppCapabilities {
   emailReady: boolean;
   /** Why email isn't ready, in a sentence, or null when it is. */
   emailBlocker: string | null;
+  /** A mail server and sender are entered (enough for scheduled reports). */
+  mailServerReady: boolean;
+  mailServerBlocker: string | null;
 }
 
 /** Fired by Settings after saving, so open screens re-read what is set up. */
@@ -58,7 +61,11 @@ export function useAppCapabilities(): AppCapabilities {
   else if (!server) emailBlocker = "Can't reach the monitoring service to check the mail server setup.";
   else if (!server.host || !server.from) emailBlocker = 'Enter the mail server and send-from address in Settings first.';
 
-  return { loading, ...local, emailReady: emailBlocker === null, emailBlocker };
+  let mailServerBlocker: string | null = null;
+  if (!server) mailServerBlocker = "Can't reach the monitoring service to check the mail server setup.";
+  else if (!server.host || !server.from) mailServerBlocker = 'Reports are emailed through your own mail server. In Settings, turn on email and enter the server and send-from address first.';
+
+  return { loading, ...local, emailReady: emailBlocker === null, emailBlocker, mailServerReady: mailServerBlocker === null, mailServerBlocker };
 }
 
 /**
@@ -96,6 +103,7 @@ export function LocalOnlyNote({ email = false }: { email?: boolean }) {
         {email
           ? ' Outage emails go only through the mail server you enter here, to the addresses you choose.'
           : ' Outage emails are only sent once you set up your own mail server.'}
+        {' Webhooks only go to addresses you add, and the status page is only shared on your network if you switch that on.'}
       </Typography>
     </Stack>
   );

@@ -43,9 +43,10 @@ export interface Incident {
   recovery: CheckResult | null;
 }
 
+/** One target's checks, oldest first. Checks during maintenance are left out: they don't count for availability. */
 export function checksFor(history: CheckResult[], targetId: number): CheckResult[] {
   return history
-    .filter((h) => h.targetId === targetId)
+    .filter((h) => h.targetId === targetId && !h.maintenance)
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 }
 

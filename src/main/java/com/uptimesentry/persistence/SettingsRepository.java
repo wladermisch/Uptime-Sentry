@@ -35,6 +35,17 @@ public class SettingsRepository {
         public String smtpFrom = "";
         public String smtpFromName = "Uptime Sentry";
 
+        // Read-only status page, served at http://127.0.0.1:8765/status.
+        public boolean statusPageEnabled = false;
+        public String statusPageTitle = "Service status";
+        /** Show each target's address (off: names only). */
+        public boolean statusPageShowHosts = false;
+        /** Also serve the page to other devices on the network, on its own port (never the API). */
+        public boolean statusPageNetwork = false;
+        public int statusPagePort = 8766;
+        /** Profiles to show; empty shows all monitored targets. */
+        public java.util.List<String> statusPageProfileIds = new java.util.ArrayList<>();
+
         public AppSettings copy() {
             return GSON.fromJson(GSON.toJson(this), AppSettings.class);
         }

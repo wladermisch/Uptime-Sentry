@@ -32,6 +32,10 @@ interface StoredTarget {
   keywordRule?: string;
   paused?: boolean;
   email?: EmailRule;
+  port?: number;
+  dnsExpected?: string;
+  sslWarnDays?: number;
+  slowAlertAfter?: number;
 }
 
 function read<T>(key: string, fallback: T): T {
@@ -72,6 +76,11 @@ export function buildBackendTargets() {
       degradedLatencyThreshold: t.degradedLatencyThreshold,
       consecutiveFailuresLimit: t.consecutiveFailuresLimit ?? 1,
       profileName: profile?.name ?? '',
+      profileId: t.profileId,
+      port: t.port ?? 0,
+      dnsExpected: t.dnsExpected ?? '',
+      sslWarnDays: t.sslWarnDays ?? 14,
+      slowAlertAfter: t.slowAlertAfter ?? 0,
       upSound: t.upSound === 'no-sound' ? 'no-sound' : resolveSound(t.upSound, profile?.upSound, settings.defaultUpSound || 'Up-Default.wav'),
       downSound: t.downSound === 'no-sound' ? 'no-sound' : resolveSound(t.downSound, profile?.downSound, settings.defaultDownSound || 'Down-Default.wav'),
       keyword: t.keyword,

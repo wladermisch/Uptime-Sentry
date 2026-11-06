@@ -15,6 +15,7 @@ import AnalyticsTab from './components/AnalyticsTab';
 import ReportsTab from './components/ReportsTab';
 import AboutTab from './components/AboutTab';
 import FeedbackTab from './components/FeedbackTab';
+import MaintenanceTab from './components/MaintenanceTab';
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ import { syncTargetsToBackend } from './backendSync';
 import { gray } from '../shared-theme/themePrimitives';
 
 /** Screens that lay out their own columns edge to edge, like Home's board and pass. */
-const FULL_BLEED_TABS = new Set(['home', 'profiles', 'targets', 'analytics', 'reports']);
+const FULL_BLEED_TABS = new Set(['home', 'profiles', 'targets', 'maintenance', 'analytics', 'reports']);
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = React.useState('home');
@@ -127,6 +128,7 @@ export default function Dashboard() {
     switch (activeTab) {
       case 'profiles':  return <ProfilesTab />;
       case 'targets':   return <TargetsTab />;
+      case 'maintenance': return <MaintenanceTab />;
       case 'analytics': return <AnalyticsTab />;
       case 'reports':   return <ReportsTab />;
       case 'settings':  return <SettingsTab />;

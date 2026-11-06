@@ -2,9 +2,8 @@ package com.uptimesentry.api;
 
 import com.uptimesentry.model.CheckResult;
 import com.uptimesentry.model.MonitoredTarget;
-import com.uptimesentry.monitor.HttpMonitor;
 import com.uptimesentry.monitor.Monitorable;
-import com.uptimesentry.monitor.PingMonitor;
+import com.uptimesentry.monitor.Monitors;
 import com.uptimesentry.persistence.HistoryRepository;
 import com.uptimesentry.persistence.TargetRepository;
 import com.uptimesentry.service.AutoCheckService;
@@ -46,8 +45,8 @@ public class TargetsController {
             t.setId(nextId);
             if (t.getName() == null || t.getName().isBlank()) { ctx.status(400).result("name is required"); return; }
             if (t.getHost() == null || t.getHost().isBlank()) { ctx.status(400).result("host is required"); return; }
-            if (t.getType() == null || (!t.getType().equalsIgnoreCase("HTTP") && !t.getType().equalsIgnoreCase("PING"))) {
-                ctx.status(400).result("type must be HTTP or PING"); return;
+            if (!Monitors.isKnownType(t.getType())) {
+                ctx.status(400).result("type must be HTTP, PING, TCP, DNS or SSL"); return;
             }
             if (t.getTimeout() <= 0) t.setTimeout(5);
             synchronized (targets) {
@@ -120,7 +119,7 @@ public class TargetsController {
         }
     }
 
-    /** POST /api/targets/check-dryrun */
+    /** POST /api/targets/check-dryrun: runs the check for unsaved settings; nothing is recorded. */
     public void checkDryRun(Context ctx) {
         try {
             MonitoredTarget target = ctx.bodyAsClass(MonitoredTarget.class);
@@ -130,49 +129,21 @@ public class TargetsController {
             }
             if (target.getType() == null) target.setType("HTTP");
             if (target.getTimeout() <= 0) target.setTimeout(5);
-
-            String type = target.getType();
-            boolean online = false;
-            long responseTime = 0;
-            String message = "";
-
-            long startTime = System.currentTimeMillis();
-            if ("HTTP".equalsIgnoreCase(type)) {
-                try {
-                    String urlStr = com.uptimesentry.util.NetworkUtil.normalizeHttpUrl(target.getHost());
-                    java.net.HttpURLConnection connection = (java.net.HttpURLConnection) new java.net.URL(urlStr).openConnection();
-                    connection.setConnectTimeout(target.getTimeout() * 1000);
-                    connection.setReadTimeout(target.getTimeout() * 1000);
-                    int responseCode = connection.getResponseCode();
-                    if (target.getAcceptableStatusCodes() == null || target.getAcceptableStatusCodes().isEmpty()) {
-                        online = (responseCode >= 200 && responseCode < 400);
-                    } else {
-                        online = target.getAcceptableStatusCodes().contains(responseCode);
-                    }
-                    message = "HTTP " + responseCode;
-                } catch (Exception e) {
-                    online = false;
-                    message = "Connection failed: " + e.getMessage();
-                }
-            } else {
-                try {
-                    online = com.uptimesentry.util.NetworkUtil.ping(target.getHost(), target.getTimeout());
-                    message = online ? "Ping success" : "Ping timeout";
-                } catch (Exception e) {
-                    online = false;
-                    message = "Ping failed: " + e.getMessage();
-                }
+            Monitorable monitor = Monitors.create(target);
+            if (monitor == null) {
+                ctx.status(400).result("unknown check type");
+                return;
             }
-            long endTime = System.currentTimeMillis();
-            responseTime = endTime - startTime;
-
+            boolean online;
+            try { online = monitor.checkAvailability(); } catch (Exception e) { online = false; }
+            String detail = monitor.getLastMessage();
             ctx.json(new CheckResult(
                 0,
                 target.getName() != null ? target.getName() : "Dry Run",
-                java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
                 online,
-                responseTime,
-                message
+                monitor.getResponseTime(),
+                detail != null && !detail.isBlank() ? detail : (online ? "Check succeeded." : "Check failed.")
             ));
         } catch (Exception e) {
             ctx.status(500).result("Dry-run failed: " + e.getMessage());
@@ -188,8 +159,8 @@ public class TargetsController {
         synchronized (targets) { opt = targets.stream().filter(t -> t.getId() == id).findFirst(); }
         if (opt.isEmpty()) { ctx.status(404).result("target not found"); return; }
         MonitoredTarget target = opt.get();
-        Monitorable monitor = "HTTP".equalsIgnoreCase(target.getType())
-            ? new HttpMonitor(target) : new PingMonitor(target);
+        Monitorable monitor = Monitors.create(target);
+        if (monitor == null) { ctx.status(400).result("unknown check type"); return; }
         boolean online;
         try { online = monitor.checkAvailability(); } catch (Exception e) { online = false; }
         long responseTime = monitor.getResponseTime();
@@ -197,6 +168,7 @@ public class TargetsController {
         String detail = monitor.getLastMessage();
         CheckResult result = CheckResult.of(target, timestamp, online, responseTime,
             detail != null && !detail.isBlank() ? detail : (online ? "Manual check succeeded." : "Manual check failed."));
+        if (com.uptimesentry.persistence.AppData.activeMaintenance(target, LocalDateTime.now()) != null) result.setMaintenance(true);
         HistoryRepository.addResult(result);
         ctx.json(result);
     }

@@ -25,6 +25,16 @@ public class MonitoredTarget {
     private List<Integer> degradedStatusCodes;
     private int degradedLatencyThreshold = 1500; // in ms
     private boolean paused = false;
+    /** The desktop app's profile id, for maintenance windows, webhooks and reports scoped to a profile. */
+    private String profileId;
+    /** TCP: the port to connect to. SSL: the port of the TLS service (443 when 0). */
+    private int port;
+    /** DNS: addresses the name must resolve to (any of them), comma separated; empty accepts any answer. */
+    private String dnsExpected;
+    /** SSL: counts as down when the certificate expires within this many days. */
+    private int sslWarnDays = 14;
+    /** Alert when this many checks in a row are slower than degradedLatencyThreshold; 0 turns it off. */
+    private int slowAlertAfter;
 
     // Outage email, already resolved by the desktop app from the target, its profile and the app settings.
     // No recipients means no email. Empty templates fall back to EmailService's defaults.
@@ -198,6 +208,46 @@ public class MonitoredTarget {
 
     public void setPaused(boolean paused) {
         this.paused = paused;
+    }
+
+    public String getProfileId() {
+        return profileId;
+    }
+
+    public void setProfileId(String profileId) {
+        this.profileId = profileId;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public String getDnsExpected() {
+        return dnsExpected;
+    }
+
+    public void setDnsExpected(String dnsExpected) {
+        this.dnsExpected = dnsExpected;
+    }
+
+    public int getSslWarnDays() {
+        return Math.max(0, sslWarnDays);
+    }
+
+    public void setSslWarnDays(int sslWarnDays) {
+        this.sslWarnDays = sslWarnDays;
+    }
+
+    public int getSlowAlertAfter() {
+        return Math.max(0, slowAlertAfter);
+    }
+
+    public void setSlowAlertAfter(int slowAlertAfter) {
+        this.slowAlertAfter = slowAlertAfter;
     }
 
     public List<String> getEmailRecipients() {

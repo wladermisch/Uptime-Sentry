@@ -89,6 +89,36 @@ public class EmailService {
         });
     }
 
+    /** Response-time alerts go to the same recipients; "fast again" only when recovery emails are on. */
+    public void sendSlowness(Alert alert) {
+        MonitoredTarget target = alert.target();
+        List<String> to = target.getEmailRecipients();
+        if (to == null || to.isEmpty()) return;
+        if (Alert.NORMAL.equals(alert.kind()) && !target.isEmailOnRecovery()) return;
+        String subject = "[Uptime Sentry] " + alert.headline();
+        String body = String.join("\n",
+            alert.headline() + ".",
+            "",
+            "Target:         " + target.getName() + " (" + target.getType() + ")",
+            "Address:        " + nz(target.getHost()),
+            "Profile:        " + nz(target.getProfileName()),
+            "Slow since:     " + alert.since(),
+            "Response time:  " + (alert.responseMs() >= 0 ? alert.responseMs() + " ms" : "n/a"),
+            "Limit:          " + target.getDegradedLatencyThreshold() + " ms",
+            "",
+            alert.details(),
+            "",
+            "Checked from " + computerName() + " by Uptime Sentry.");
+        List<String> recipients = List.copyOf(to);
+        sender.submit(() -> {
+            try {
+                SmtpClient.send(server(SettingsRepository.loadSettings()), recipients, subject, body);
+            } catch (IOException | RuntimeException e) {
+                SentryLogger.error("Response time email for " + target.getName() + " failed: " + e.getMessage());
+            }
+        });
+    }
+
     /** Sends a sample message right away (for the "Send test email" buttons). Throws with the reason on failure. */
     public static void sendTest(SmtpClient.Server server, List<String> recipients, String subjectTemplate, String bodyTemplate, boolean recovered)
         throws IOException {
@@ -157,7 +187,7 @@ public class EmailService {
         return v == null ? "" : v;
     }
 
-    private static String computerName() {
+    static String computerName() {
         try {
             return InetAddress.getLocalHost().getHostName();
         } catch (IOException e) {

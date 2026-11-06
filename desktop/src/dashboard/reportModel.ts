@@ -176,7 +176,7 @@ export function totals(rows: TargetFigures[], history: CheckResult[], from: Date
     ? resolved.reduce((a, r) => a + (r.mttrMs ?? 0) * r.incidents.filter((i) => i.end && i.end <= to).length, 0) / resolvedCount
     : null;
   const ids = new Set(rows.map((r) => r.target.id));
-  const response = responseStats(inRange(history.filter((h) => ids.has(h.targetId)), from, to));
+  const response = responseStats(inRange(history.filter((h) => ids.has(h.targetId) && !h.maintenance), from, to));
   const prevChecks = rows.reduce((a, r) => a + (r.previous?.checks ?? 0), 0);
   const prevFailed = rows.reduce((a, r) => a + (r.previous?.failed ?? 0), 0);
   return {
@@ -214,7 +214,7 @@ export function formatDelta(now: number | null, before: number | null): string {
 
 /** Average and p95 response time per day across a set of targets. */
 export function responseByDay(history: CheckResult[], ids: Set<number>, days: Date[]): { day: Date; avgMs: number | null; p95Ms: number | null; samples: number }[] {
-  const scoped = history.filter((h) => ids.has(h.targetId));
+  const scoped = history.filter((h) => ids.has(h.targetId) && !h.maintenance);
   return days.map((day) => {
     const r = responseStats(inRange(scoped, day, endOfDay(day)));
     return { day, avgMs: r.avg, p95Ms: r.p95, samples: r.samples };

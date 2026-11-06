@@ -198,6 +198,8 @@ public class HistoryRepository {
         try {
             Files.deleteIfExists(HISTORY_FILE);
             Files.deleteIfExists(LEGACY_FILE);
+            Files.deleteIfExists(Paths.get("history.json.migrated"));
+            Files.deleteIfExists(Paths.get(HISTORY_FILE + ".tmp"));
         } catch (IOException e) {
             SentryLogger.error("Failed to clear history: " + e.getMessage());
         }
