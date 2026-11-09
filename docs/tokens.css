@@ -16,7 +16,7 @@
   --color-accent: oklch(82% 0.095 68); --color-accent-soft: oklch(32% 0.05 68); --color-accent-ink: oklch(20% 0.03 62); --color-focus: oklch(85% 0.11 68);
   --color-band: oklch(10.4% 0.02 258); --color-band-ink: oklch(93.5% 0.012 85);
   --color-slot: oklch(22% 0.02 258);
-  --color-sky-high: oklch(10% 0.02 258); --color-sky-low: oklch(19% 0.04 245); --color-land: oklch(8.5% 0.015 258);
+  --color-sky-high: oklch(10% 0.02 258); --color-sky-low: oklch(19% 0.04 245); --color-land-far: oklch(13.5% 0.025 250); --color-land: oklch(8.5% 0.015 258);
   --metal-hi: oklch(44% 0.012 255); --metal-lo: oklch(25% 0.014 255);
   --edge-light: inset 0 1px 0 oklch(100% 0 0 / 0.07); --edge-lit: inset 0 1px 0 oklch(100% 0 0 / 0.35);
   --shadow-part: 0 1px 0 oklch(0% 0 0 / 0.4), 0 10px 18px -6px oklch(0% 0 0 / 0.55);

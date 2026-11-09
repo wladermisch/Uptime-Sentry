@@ -45,7 +45,7 @@
 
 /* ── Hero: the board over a runway at night ─────────────────────────────── */
 
-.hero { position: relative; isolation: isolate; min-height: calc(100dvh - 104px); display: grid; align-items: center; padding-block: var(--space-2xl) var(--space-3xl); background: linear-gradient(var(--color-sky-high) 0%, var(--color-sky-low) 78%, var(--color-land) 78.2%, var(--color-land) 100%); }
+.hero { position: relative; isolation: isolate; min-height: calc(100dvh - 104px); display: grid; align-items: center; padding-block: var(--space-2xl) var(--space-3xl); background: linear-gradient(var(--color-sky-high) 0%, var(--color-sky-low) 70%, var(--color-land-far) 80%, var(--color-land) 100%); }
 .hero__night { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; }
 /* The one ambient loop: visible control, hidden without script and under reduced motion. */
 .night-toggle { position: absolute; right: var(--gutter); bottom: var(--space-lg); z-index: var(--z-raised); min-height: 44px; padding: 0 var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-pill); background: color-mix(in oklab, var(--color-paper) 70%, transparent); color: var(--color-muted); font: 500 var(--text-sm)/1 var(--font-body); white-space: nowrap; cursor: pointer; transition: color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out); }
@@ -110,7 +110,7 @@ html:not(.js) .night-toggle { display: none; }
 
 /* ── Close and footer ───────────────────────────────────────────────────── */
 
-.close { position: relative; isolation: isolate; margin-top: var(--section-gap-l); padding-block: var(--section-gap-s) var(--section-gap); color: var(--color-band-ink); border-top: var(--rule-hair) solid var(--color-rule-2); background: linear-gradient(var(--color-sky-high) 0%, var(--color-sky-low) 78%, var(--color-land) 78.2%, var(--color-land) 100%); }
+.close { position: relative; isolation: isolate; margin-top: var(--section-gap-l); padding-block: var(--section-gap-s) var(--section-gap); color: var(--color-band-ink); border-top: var(--rule-hair) solid var(--color-rule-2); background: linear-gradient(var(--color-sky-high) 0%, var(--color-sky-low) 70%, var(--color-land-far) 80%, var(--color-land) 100%); }
 .close__grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: var(--space-3xl); align-items: center; }
 .close h2 { max-width: none; font-size: var(--text-display); }
 .close .lead { margin-top: var(--space-lg); color: var(--color-muted); max-width: 36ch; }

@@ -9,6 +9,10 @@ function createNight(canvas, animate) {
   const css = getComputedStyle(document.documentElement);
   const lit = css.getPropertyValue('--color-accent').trim();
   const pale = css.getPropertyValue('--color-ink').trim();
+  const skyHigh = css.getPropertyValue('--color-sky-high').trim();
+  const skyLow = css.getPropertyValue('--color-sky-low').trim();
+  const landFar = css.getPropertyValue('--color-land-far').trim();
+  const landNear = css.getPropertyValue('--color-land').trim();
   const ctx = canvas.getContext('2d');
   let w = 0, h = 0, dpr = 1, grain = null, town = [], edges = [], vanish = 0, horizonY = 0;
 
@@ -52,11 +56,17 @@ function createNight(canvas, animate) {
     horizonY = horizon;
     const land = h - horizon;
 
-    // Far town: fixed places, each with its own slow flicker.
-    town = Array.from({ length: Math.round(w / 9) }, () => ({
-      x: rnd() * w, y: horizon - 1 - rnd() * 5, r: 0.5 + rnd() * 0.6,
-      a: 0.12 + rnd() * 0.3, speed: 0.25 + rnd() * 0.5, phase: rnd() * Math.PI * 2,
-    }));
+    // The town spreads over the land in depth: most lights far and small at the horizon, fewer
+    // nearer, larger and brighter; none on the runway itself. Each flickers slowly on its own.
+    const corridor = (y) => (w * 0.16) * ((y - horizon) / (land * 0.95)) + 14;
+    town = [];
+    for (let i = 0; i < Math.round(w / 4); i++) {
+      const d = Math.pow(rnd(), 2.6); // 0 at the horizon, 1 nearest
+      const y = horizon - 3 + rnd() * 3 + d * land * 0.42;
+      const x = rnd() * w;
+      if (Math.abs(x - vanish) < corridor(y)) continue;
+      town.push({ x, y, r: 0.45 + d * 1.1 + rnd() * 0.3, a: 0.14 + d * 0.32 + rnd() * 0.12, speed: 0.2 + rnd() * 0.5, phase: rnd() * Math.PI * 2 });
+    }
 
     // Edge lights evenly spaced along the runway, projected: nearer ones fall off the bottom edge.
     edges = [];
@@ -64,21 +74,39 @@ function createNight(canvas, animate) {
       const z = 0.7 + i * 0.4;
       const y = horizon + (land * 0.95) / z;
       // Past this the rows would run together into a drawn line; the runway fades out instead.
-      if (y > h + 20 || z > 12) continue;
+      if (y > h + 20 || z > 9) continue;
+      const fadeOut = Math.min(1, (9 - z) / 3.5);
       for (const side of [-1, 1]) {
-        edges.push({ x: vanish + side * (w * 0.16) / z, y, z, r: Math.max(0.5, Math.min(2.4, 2.4 / z)), a: Math.max(0.16, Math.min(0.8, 1.2 / Math.sqrt(z))) });
+        edges.push({ x: vanish + side * (w * 0.16) / z, y, z, r: Math.max(0.55, Math.min(2.4, 2.4 / z)), a: Math.max(0.12, Math.min(0.8, 1.2 / Math.sqrt(z))) * fadeOut });
       }
     }
 
-    // Grain once, so the sky does not band.
+    // The still backdrop, painted once: sky into land with no hard edge, a low haze where the
+    // town's light hangs in the air, the land darkening towards the viewer, then grain.
     grain = document.createElement('canvas');
     grain.width = canvas.width;
     grain.height = canvas.height;
     const g = grain.getContext('2d');
     g.scale(dpr, dpr);
+    const sky = g.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, skyHigh);
+    sky.addColorStop((horizon - land * 0.6) / h, skyLow);
+    sky.addColorStop(horizon / h, skyLow);
+    sky.addColorStop(Math.min(1, (horizon + land * 0.12) / h), landFar);
+    sky.addColorStop(1, landNear);
+    g.fillStyle = sky;
+    g.fillRect(0, 0, w, h);
+    const haze = g.createLinearGradient(0, horizon - land * 0.7, 0, horizon + land * 0.25);
+    haze.addColorStop(0, 'transparent');
+    haze.addColorStop(0.72, pale);
+    haze.addColorStop(1, 'transparent');
+    g.globalAlpha = 0.06;
+    g.fillStyle = haze;
+    g.fillRect(0, horizon - land * 0.7, w, land * 0.95);
     g.fillStyle = pale;
     g.globalAlpha = 0.045;
     for (let i = 0; i < (w * h) / 900; i++) g.fillRect(rnd() * w, rnd() * h, 1, 1);
+    g.globalAlpha = 1;
   };
 
   const draw = (t) => {
