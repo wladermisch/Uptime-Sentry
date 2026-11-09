@@ -1,26 +1,31 @@
-// The night behind the hero, the retracting bar, and the screen switcher. The page reads the same without it.
+// The night behind the hero (and the close), the retracting bar, and the screen switcher. The page reads the same without it.
 
-// A runway at night: the approach lights and the two edge rows meeting at the horizon, drawn once, held still.
-function drawNight(canvas) {
+// A runway at night, seen from the approach: two rows of edge lights in true perspective, a far
+// town on the horizon, the "rabbit" (the sequenced approach flash) running towards the horizon,
+// and an aircraft's landing light sinking onto the runway. The runway lies in the gap between the
+// hero's text and its screenshot, so the motion never runs behind either. The hero's canvas moves
+// slowly; any other canvas (the close) is drawn once and held still.
+function createNight(canvas, animate) {
   const css = getComputedStyle(document.documentElement);
   const lit = css.getPropertyValue('--color-accent').trim();
   const pale = css.getPropertyValue('--color-ink').trim();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-  canvas.width = Math.round(w * dpr);
-  canvas.height = Math.round(h * dpr);
   const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, w, h);
+  let w = 0, h = 0, dpr = 1, grain = null, town = [], edges = [], vanish = 0, horizonY = 0;
 
-  const horizon = h * 0.78;
-  const vanish = w * 0.62;
-  // Seeded noise, so every load draws the same field.
-  let seed = 7;
-  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const rng = (seed) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
-  const dot = (x, y, r, colour, alpha) => {
+  // A soft light: a small core and a faint halo, so it reads as a lamp, not a printed dot.
+  const lamp = (x, y, r, colour, alpha) => {
+    if (alpha <= 0.01 || r <= 0) return;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r * 4);
+    g.addColorStop(0, colour);
+    g.addColorStop(0.25, colour);
+    g.addColorStop(1, 'transparent');
+    ctx.globalAlpha = alpha * 0.35;
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 4, 0, Math.PI * 2);
+    ctx.fill();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = colour;
     ctx.beginPath();
@@ -28,35 +33,124 @@ function drawNight(canvas) {
     ctx.fill();
   };
 
-  // Far town lights along the horizon.
-  for (let i = 0; i < 140; i++) {
-    const x = rnd() * w;
-    const y = horizon - 2 - rnd() * 6;
-    dot(x, y, 0.6 + rnd() * 0.7, rnd() > 0.82 ? lit : pale, 0.18 + rnd() * 0.35);
-  }
+  const layout = () => {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = canvas.clientWidth;
+    h = canvas.clientHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    const rnd = rng(7);
+    const horizon = h * 0.78;
+    // Centre of the gap between the text and the screenshot, else a little left of centre.
+    const host = canvas.parentElement;
+    const text = host.querySelector('.hero__grid > :first-child');
+    const shot = host.querySelector('.hero__grid > figure');
+    const box = canvas.getBoundingClientRect();
+    vanish = text && shot && shot.getBoundingClientRect().left > text.getBoundingClientRect().right
+      ? (text.getBoundingClientRect().right + shot.getBoundingClientRect().left) / 2 - box.left
+      : w * 0.42;
+    horizonY = horizon;
+    const land = h - horizon;
 
-  // Two edge rows of the runway, converging on the horizon.
-  for (const side of [-1, 1]) {
-    for (let i = 0; i < 22; i++) {
-      const t = i / 21; // 0 near, 1 at the horizon
-      const depth = Math.pow(t, 1.8);
-      const x = vanish + side * (w * 0.55) * (1 - depth) * 0.9 + side * 6;
-      const y = h - (h - horizon) * depth - 4;
-      dot(x, y, 2.4 * (1 - depth) + 0.6, lit, 0.85 - depth * 0.5);
+    // Far town: fixed places, each with its own slow flicker.
+    town = Array.from({ length: Math.round(w / 9) }, () => ({
+      x: rnd() * w, y: horizon - 1 - rnd() * 5, r: 0.5 + rnd() * 0.6,
+      a: 0.12 + rnd() * 0.3, speed: 0.25 + rnd() * 0.5, phase: rnd() * Math.PI * 2,
+    }));
+
+    // Edge lights evenly spaced along the runway, projected: nearer ones fall off the bottom edge.
+    edges = [];
+    for (let i = 0; i < 90; i++) {
+      const z = 0.7 + i * 0.4;
+      const y = horizon + (land * 0.95) / z;
+      // Past this the rows would run together into a drawn line; the runway fades out instead.
+      if (y > h + 20 || z > 12) continue;
+      for (const side of [-1, 1]) {
+        edges.push({ x: vanish + side * (w * 0.16) / z, y, z, r: Math.max(0.5, Math.min(2.4, 2.4 / z)), a: Math.max(0.16, Math.min(0.8, 1.2 / Math.sqrt(z))) });
+      }
     }
-  }
 
-  // Grain, so the gradient does not band.
-  ctx.globalAlpha = 0.05;
-  ctx.fillStyle = pale;
-  for (let i = 0; i < (w * h) / 900; i++) ctx.fillRect(rnd() * w, rnd() * h, 1, 1);
-  ctx.globalAlpha = 1;
+    // Grain once, so the sky does not band.
+    grain = document.createElement('canvas');
+    grain.width = canvas.width;
+    grain.height = canvas.height;
+    const g = grain.getContext('2d');
+    g.scale(dpr, dpr);
+    g.fillStyle = pale;
+    g.globalAlpha = 0.045;
+    for (let i = 0; i < (w * h) / 900; i++) g.fillRect(rnd() * w, rnd() * h, 1, 1);
+  };
+
+  const draw = (t) => {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(grain, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const sec = t / 1000;
+
+    for (const l of town) lamp(l.x, l.y, l.r, pale, l.a * (0.75 + 0.25 * Math.sin(sec * l.speed + l.phase)));
+
+    // The rabbit: a flash running from the nearest lights to the horizon, once every 4 seconds.
+    const run = (sec % 4) / 1.6; // 0..1 while it runs, then dark until the next run
+    const zFlash = 0.7 + run * 24;
+    for (const e of edges) {
+      const near = run <= 1 ? Math.max(0, 1 - Math.abs(e.z - zFlash) / 2.2) : 0;
+      lamp(e.x, e.y, e.r, pale, e.a * 0.8);
+      if (near > 0) lamp(e.x, e.y, e.r * 1.8 + 0.6, lit, Math.min(1, near * (e.a + 0.5)));
+    }
+
+    // An aircraft on final: its landing light sinks from high in the gap to the runway's far end
+    // over 22 seconds, the amber beacon blinking once a second, then it is gone for a few seconds.
+    const leg = (sec % 26) / 22;
+    if (leg <= 1) {
+      const ease = leg * leg * (3 - 2 * leg);
+      const x = vanish + Math.sin(leg * Math.PI) * 6;
+      const y = h * 0.12 + (horizonY - 6 - h * 0.12) * ease;
+      const fade = Math.min(1, leg * 8) * Math.min(1, (1 - leg) * 10);
+      lamp(x, y, 1.6 - ease * 0.6, pale, 0.9 * fade);
+      if (sec % 1 < 0.12) lamp(x, y - 4, 1.1, lit, 0.9 * fade);
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  let raf = 0, last = 0, running = false;
+  const frame = (t) => {
+    if (!running) return;
+    if (t - last > 33) { draw(t); last = t; } // about 30 frames a second is plenty for this
+    raf = requestAnimationFrame(frame);
+  };
+  const api = {
+    play() { if (!animate || running) return; running = true; raf = requestAnimationFrame(frame); },
+    pause() { running = false; cancelAnimationFrame(raf); },
+    redraw() { layout(); draw(animate ? performance.now() : 0); },
+  };
+  api.redraw();
+  let t;
+  window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(api.redraw, 150); }, { passive: true });
+  return api;
 }
 
+const still = matchMedia('(prefers-reduced-motion: reduce)');
 document.querySelectorAll('[data-night]').forEach((canvas) => {
-  drawNight(canvas);
-  let t;
-  window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => drawNight(canvas), 150); }, { passive: true });
+  const loop = canvas.closest('[data-loop]');
+  const night = createNight(canvas, !!loop);
+  if (!loop) return;
+  // Runs only while on screen, with the tab visible, not held by the visitor, and not under reduced motion.
+  const s = { seen: false, held: false };
+  const btn = loop.querySelector('[data-loop-toggle]');
+  const sync = () => {
+    const run = s.seen && !s.held && !still.matches && !document.hidden;
+    if (run) night.play(); else night.pause();
+    loop.classList.toggle('is-running', run);
+    if (btn) {
+      btn.textContent = s.held ? 'Play the night' : 'Pause the night';
+      btn.setAttribute('aria-pressed', String(s.held));
+    }
+  };
+  btn?.addEventListener('click', () => { s.held = !s.held; sync(); });
+  document.addEventListener('visibilitychange', sync);
+  still.addEventListener('change', sync);
+  new IntersectionObserver(([e]) => { s.seen = e.isIntersecting; sync(); }).observe(loop);
 });
 
 // The bar slides away while reading down and returns on the way up.

@@ -42,8 +42,9 @@
   </header>
 
   <main id="main">
-    <section class="hero" aria-labelledby="hero-title">
+    <section class="hero" aria-labelledby="hero-title" data-loop>
       <canvas class="hero__night" data-night aria-hidden="true"></canvas>
+      <button class="night-toggle" type="button" data-loop-toggle aria-pressed="false">Pause the night</button>
       <div class="container hero__grid">
         <div>
           <h1 id="hero-title"><span>Every service</span> <span>on one board.</span></h1>

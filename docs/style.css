@@ -47,6 +47,14 @@
 
 .hero { position: relative; isolation: isolate; min-height: calc(100dvh - 104px); display: grid; align-items: center; padding-block: var(--space-2xl) var(--space-3xl); background: linear-gradient(var(--color-sky-high) 0%, var(--color-sky-low) 78%, var(--color-land) 78.2%, var(--color-land) 100%); }
 .hero__night { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; }
+/* The one ambient loop: visible control, hidden without script and under reduced motion. */
+.night-toggle { position: absolute; right: var(--gutter); bottom: var(--space-lg); z-index: var(--z-raised); min-height: 44px; padding: 0 var(--space-md); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-pill); background: color-mix(in oklab, var(--color-paper) 70%, transparent); color: var(--color-muted); font: 500 var(--text-sm)/1 var(--font-body); white-space: nowrap; cursor: pointer; transition: color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out); }
+.night-toggle:hover { color: var(--color-ink); border-color: var(--color-muted); }
+.night-toggle:active { transform: translateY(1px); }
+.night-toggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.night-toggle:disabled { opacity: 0.55; cursor: not-allowed; }
+html:not(.js) .night-toggle { display: none; }
+@media (prefers-reduced-motion: reduce) { .night-toggle { display: none; } }
 .hero__grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-3xl); align-items: center; }
 .hero h1 { max-width: none; font-size: clamp(2.75rem, 4.2vw + 1rem, 4.75rem); line-height: 1.02; }
 .hero h1 span { display: block; white-space: nowrap; }
