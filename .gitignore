@@ -79,6 +79,3 @@ PRODUCT.md
 *.json.tmp
 
 
-# Hallmark's working screenshots, not part of the published site
-docs/.hallmark/
-
