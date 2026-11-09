@@ -1,0 +1,28 @@
+[
+ {
+  "shape": "Narrative Workflow",
+  "theme": "ribbon",
+  "axes": "dark/grotesk-sans/amber",
+  "hero": "Settled",
+  "nav": "banner over a retracting bar",
+  "footer": "letter close",
+  "imagery": "screenshots 7 (the app with sample data)",
+  "photos": [],
+  "entry": "docs/index.html",
+  "fingerprint": "narrative-workflow/settled/showcase-rows-band-switcher-table-close",
+  "sections": [
+   "hero",
+   "showcase",
+   "rows",
+   "band showcase",
+   "switcher",
+   "table",
+   "close"
+  ],
+  "signature": "the live board standing over a runway at night",
+  "waived": [],
+  "prompt": "erstelle eine Seite für dieses Projekt, nutze Ribbon als Style theme",
+  "date": "2026-11-09",
+  "mode": "build"
+ }
+]

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Uptime Sentry: watch your services from your own PC</title>
+  <meta name="description" content="Uptime Sentry is a free Windows app that checks your websites, servers and network devices from your own computer and tells you when one goes down.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500&family=Figtree:wght@400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <div class="banner">
+    <div class="container">
+      <a href="https://github.com/wladermisch/Uptime-Sentry">Free and open source on GitHub</a>
+    </div>
+  </div>
+
+  <header class="bar" data-bar>
+    <div class="container">
+      <a class="wordmark" href="#main" aria-label="Uptime Sentry, back to the top">
+        <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <rect class="mark-plate" width="32" height="32" rx="6"/>
+          <g class="mark-rows">
+            <rect x="7" y="8" width="4" height="3"/><rect x="13" y="8" width="12" height="3"/>
+            <rect x="7" y="14.5" width="4" height="3"/><rect x="13" y="14.5" width="9" height="3"/>
+            <rect x="7" y="21" width="4" height="3"/><rect x="13" y="21" width="11" height="3"/>
+          </g>
+        </svg>
+        Uptime Sentry
+      </a>
+      <nav aria-label="Page">
+        <a href="#how">How it works</a>
+        <a href="#needs">What it needs</a>
+      </nav>
+      <a class="btn btn--small" href="https://github.com/wladermisch/Uptime-Sentry/releases/latest">Download</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <canvas class="hero__night" data-night aria-hidden="true"></canvas>
+      <div class="container hero__grid">
+        <div>
+          <h1 id="hero-title"><span>Every service</span> <span>on one board.</span></h1>
+          <p class="lead">Uptime Sentry watches your websites, servers and devices from your own PC.</p>
+          <div class="actions">
+            <a class="btn btn--primary" href="https://github.com/wladermisch/Uptime-Sentry/releases/latest">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+              Download for Windows
+            </a>
+            <a class="link" href="https://github.com/wladermisch/Uptime-Sentry">Read the code</a>
+          </div>
+        </div>
+        <figure class="screen" tabindex="0" data-slot="hero" data-kind="product" data-alt="The Home board of the app: every target ranked, the one that is down first">
+          <img src="images/screens/home.png" width="2880" height="1800" fetchpriority="high"
+               alt="The Uptime Sentry board with seven targets. Backup NAS is down and listed first; its details are open on the right.">
+        </figure>
+      </div>
+    </section>
+
+    <section class="stage stage--wide" id="how" aria-labelledby="s1">
+      <div class="container">
+        <div class="head">
+          <h2 id="s1">1. Add what you run</h2>
+          <p class="lead">Websites, ping, TCP ports, DNS names and certificates, each tested as you type.</p>
+        </div>
+        <figure class="screen screen--wide" tabindex="0" style="--crop: 1440 / 736" data-slot="targets" data-kind="product" data-alt="The Targets screen with a TCP check open and its live test result">
+          <img src="images/screens/targets.png" width="2880" height="1800" loading="lazy"
+               alt="The Targets screen. Mail relay is a TCP check on port 587; the live test reports the port open in 19 ms.">
+        </figure>
+      </div>
+    </section>
+
+    <section class="stage stage--rows" aria-labelledby="s2">
+      <div class="container rows-grid">
+        <div class="head">
+          <h2 id="s2">2. Hear it the moment it drops</h2>
+        </div>
+        <dl class="rows">
+          <div><dt>A sound and a tray note</dt><dd>Per target, or your own WAV.</dd></div>
+          <div><dt>An email with the cause</dt><dd>Through your own mail server.</dd></div>
+          <div><dt>Webhooks</dt><dd>Slack, Teams, Discord, ntfy on your phone, or plain JSON.</dd></div>
+          <div><dt>A script that fixes it</dt><dd>A restart after repeated failures.</dd></div>
+          <div><dt>Slow counts too</dt><dd>Replies over your limit, then fast again.</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="stage stage--band" aria-labelledby="s3">
+      <div class="container">
+        <div class="head head--split">
+          <h2 id="s3">3. Plan the quiet hours</h2>
+          <p class="lead">Checks keep running during a window; alerts pause and reports leave the time out.</p>
+        </div>
+        <figure class="screen screen--wide" tabindex="0" style="--crop: 1440 / 622" data-slot="maintenance" data-kind="product" data-alt="The Maintenance screen with a weekly window open">
+          <img src="images/screens/maintenance.png" width="2880" height="1800" loading="lazy"
+               alt="The Maintenance screen. Router firmware updates run every Sunday from 03:00 to 04:00 for all targets.">
+        </figure>
+      </div>
+    </section>
+
+    <section class="stage" aria-labelledby="s4">
+      <div class="container">
+        <div class="head">
+          <h2 id="s4">4. Show how the month went</h2>
+        </div>
+        <div class="switch" data-switch>
+          <div class="tabs" role="tablist" aria-label="Screens">
+            <button type="button" role="tab" id="t-report" aria-controls="p-report" aria-selected="true">Report</button>
+            <button type="button" role="tab" id="t-status" aria-controls="p-status" aria-selected="false" tabindex="-1">Status page</button>
+            <button type="button" role="tab" id="t-outages" aria-controls="p-outages" aria-selected="false" tabindex="-1">Outages</button>
+          </div>
+          <figure class="panel" role="tabpanel" id="p-report" aria-labelledby="t-report">
+            <div class="screen screen--wide" tabindex="0" style="--crop: 1440 / 776" data-slot="report" data-kind="product" data-alt="The Reports screen with a weekly availability report">
+              <img src="images/screens/reports.png" width="2880" height="1800" loading="lazy" alt="An availability report for the Home lab profile: 85.71% against a 99.9% target, one outage, daily uptime per target.">
+            </div>
+            <figcaption>Save it as PDF, Markdown or text, or have it emailed every week.</figcaption>
+          </figure>
+          <figure class="panel" role="tabpanel" id="p-status" aria-labelledby="t-status">
+            <div class="screen screen--wide" tabindex="0" style="--crop: 1440 / 730" data-slot="status" data-kind="product" data-alt="The status page the app serves">
+              <img src="images/screens/status.png" width="2880" height="1800" loading="lazy" alt="The status page: one service down, each target with 30 days of daily bars.">
+            </div>
+            <figcaption>A read-only page with 30 days per target, for this PC or your network.</figcaption>
+          </figure>
+          <figure class="panel" role="tabpanel" id="p-outages" aria-labelledby="t-outages">
+            <div class="screen screen--wide" tabindex="0" style="--crop: 1440 / 736" data-slot="outages" data-kind="product" data-alt="The Analytics screen for one target with its outages">
+              <img src="images/screens/analytics.png" width="2880" height="1800" loading="lazy" alt="Analytics for Backup NAS: availability by period and the ongoing outage with its failed checks.">
+            </div>
+            <figcaption>Every outage with its failed checks and the notes you add.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="stage" id="needs" aria-labelledby="needs-title">
+      <div class="container">
+        <div class="head">
+          <h2 id="needs-title">No account, no cloud, one installer</h2>
+        </div>
+        <table class="needs">
+          <tbody>
+            <tr><th scope="row">System</th><td>Windows, with the installer from GitHub Releases</td></tr>
+            <tr><th scope="row">Java</th><td>Included in the installer; nothing else to set up</td></tr>
+            <tr><th scope="row">Account</th><td>None, and no cloud service behind it</td></tr>
+            <tr><th scope="row">Your data</th><td>History and settings stay on this PC; the mail password goes to Windows Credential Manager</td></tr>
+            <tr><th scope="row">Network</th><td>Only your checks, plus the emails and webhooks you add</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="close" aria-labelledby="close-title">
+      <canvas class="hero__night" data-night aria-hidden="true"></canvas>
+      <div class="container close__grid">
+        <figure class="screen screen--phone" data-slot="phone" data-kind="product" data-alt="The status page on a phone">
+          <img src="images/screens/status-phone.png" width="780" height="1688" loading="lazy" alt="The status page on a phone, listing each target with its daily bars.">
+        </figure>
+        <div>
+          <h2 id="close-title">Your board, tonight.</h2>
+          <p class="lead">Install it, add a target, and the first check runs within a minute.</p>
+          <div class="actions">
+            <a class="btn btn--primary" href="https://github.com/wladermisch/Uptime-Sentry/releases/latest">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+              Download for Windows
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__grid">
+      <div>
+      <p class="footer__letter">Uptime Sentry is free and open source. Questions, ideas and bugs are welcome on GitHub.</p>
+      <p class="footer__sign">Wlad Ermisch, <time datetime="2026-11">November 2026</time></p>
+      </div>
+      <ul class="footer__links">
+        <li><a href="https://github.com/wladermisch/Uptime-Sentry">Source</a></li>
+        <li><a href="https://github.com/wladermisch/Uptime-Sentry/releases">Releases</a></li>
+        <li><a href="https://github.com/wladermisch/Uptime-Sentry/issues">Issues</a></li>
+        <li><a href="https://ko-fi.com/wladermisch">Support on Ko-fi</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script>window.hallmarkSlots = (m) => { for (const [k, v] of Object.entries(m)) { const s = document.querySelector(`[data-slot="${k}"]`); if (!s) continue; const im = new Image(); im.src = typeof v === 'string' ? v : v.src; im.alt = (typeof v === 'object' && v.alt) || s.dataset.alt || ''; s.querySelectorAll(':scope > img').forEach((o) => o.remove()); s.prepend(im); } };
+document.querySelectorAll('[data-slot] img').forEach((i) => { if (i.complete && !i.naturalWidth) i.remove(); else i.addEventListener('error', () => i.remove(), { once: true }); });</script>
+  <script src="site.js" defer></script>
+</body>
+</html>
