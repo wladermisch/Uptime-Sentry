@@ -10,6 +10,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import AddIcon from '@mui/icons-material/Add';
+import ButtonBase from '@mui/material/ButtonBase';
+import RadarRoundedIcon from '@mui/icons-material/RadarRounded';
+import DiscoveryDialog, { DiscoveredTarget } from './DiscoveryDialog';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import {
   FieldGrid, IndexEmpty, IndexFilter, IndexHeader, IndexList, IndexRow, Pass, PassFooter, PassHead, PassSection, Tag, Workspace, mono,
@@ -73,6 +76,7 @@ export default function TargetsTab() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const sounds = useSoundLibrary();
   const caps = useAppCapabilities();
+  const [discoverOpen, setDiscoverOpen] = React.useState(false);
 
   // Form State
   const [name, setName] = React.useState('');
@@ -388,6 +392,42 @@ export default function TargetsTab() {
     }
   };
 
+  /** Found services become ordinary targets in the active profile, with its defaults. */
+  const addDiscovered = (found: DiscoveredTarget[]) => {
+    if (!activeProfile || found.length === 0) return;
+    let all = [...targets];
+    for (const f of found) {
+      const t: Target = {
+        id: nextTargetId(all),
+        profileId: activeProfile.id,
+        name: f.name,
+        type: f.type,
+        host: f.host,
+        port: f.port,
+        timeout: activeProfile.defaultTimeout || 5,
+        consecutiveFailuresLimit: activeProfile.consecutiveFailuresLimit || 2,
+        recoveryAction: '',
+        // A login page or a redirect to HTTPS still means the device answers.
+        acceptableStatusCodes: f.type === 'HTTP' ? [200, 301, 302, 401, 403] : [],
+        degradedLatencyThreshold: 1500,
+        profileName: activeProfile.name,
+        upSound: 'default-profile',
+        downSound: 'default-profile',
+        keyword: '',
+        keywordRule: 'DISABLED',
+        paused: false,
+        email: INHERIT_RULE,
+      };
+      all = [...all, t];
+    }
+    localStorage.setItem('uptime_sentry_targets', JSON.stringify(all));
+    setTargets(all);
+    requestSync();
+    const first = all[all.length - found.length];
+    setSelectedId(first.id ?? null);
+    fillForm(first);
+  };
+
   const displayTargets = React.useMemo(() => {
     const list = [...targets];
     if (selectedId === -1 && activeProfile) {
@@ -437,10 +477,36 @@ export default function TargetsTab() {
   const testTone = dryRunResult?.status === 'OFFLINE' ? 'down' : dryRunResult?.status === 'DEGRADED' ? 'degraded' : 'up';
 
   return (
+    <>
+    <DiscoveryDialog
+      open={discoverOpen}
+      onClose={() => { setDiscoverOpen(false); }}
+      existing={targets.filter((t) => t.profileId === activeProfile.id).map((t) => ({ type: t.type, host: t.host, port: t.port }))}
+      onAdd={addDiscovered}
+    />
     <Workspace
       index={
         <>
-          <IndexHeader title={`Targets · ${activeProfile.name}`} count={profileTargetCount} action={{ label: 'Add', icon: <AddIcon />, onClick: handleNewTargetClick }} />
+          <IndexHeader
+            title={`Targets · ${activeProfile.name}`}
+            count={profileTargetCount}
+            action={{ label: 'Add', icon: <AddIcon />, onClick: handleNewTargetClick }}
+            extra={(
+              <ButtonBase
+                onClick={() => { setDiscoverOpen(true); }}
+                aria-label="Find services on my network"
+                title="Find services on my network"
+                sx={{
+                  font: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', color: 'var(--board-head-ink)',
+                  height: 26, width: 30, borderRadius: '3px', '& svg': { fontSize: 17 },
+                  '&:hover': { backgroundColor: 'var(--board-head-hover)' },
+                  '&:focus-visible': { outline: '2px solid var(--board-head-ink)', outlineOffset: 0 },
+                }}
+              >
+                <RadarRoundedIcon />
+              </ButtonBase>
+            )}
+          />
           {profileTargetCount > 6 && <IndexFilter value={searchQuery} onChange={setSearchQuery} placeholder="Filter by name or host" />}
           <IndexList label="Targets">
             {filteredTargets.map((t, i) => (
@@ -787,5 +853,6 @@ export default function TargetsTab() {
         </Pass>
       )}
     </Workspace>
+    </>
   );
 }

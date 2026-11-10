@@ -103,7 +103,7 @@ export function LocalOnlyNote({ email = false }: { email?: boolean }) {
         {email
           ? ' Outage emails go only through the mail server you enter here, to the addresses you choose.'
           : ' Outage emails are only sent once you set up your own mail server.'}
-        {' Webhooks only go to addresses you add, and the status page is only shared on your network if you switch that on.'}
+        {' Webhooks only go to addresses you add, the status page is only shared on your network if you switch that on, and network discovery is off until you turn it on and start a search.'}
       </Typography>
     </Stack>
   );

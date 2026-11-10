@@ -27,7 +27,7 @@ const STEPS = ['Welcome', 'Tour', 'Preferences', 'First target'];
 
 const TOUR = [
   { icon: <HomeRoundedIcon />, title: 'Home', text: 'Everything you monitor on one board, ranked so whatever is down comes first, with when it went down and why. The bell lists what changed until you acknowledge it.' },
-  { icon: <TrackChangesRoundedIcon />, title: 'Targets & Profiles', text: 'Check websites (HTTP, with optional page text), devices (ping), TCP ports, DNS names and SSL certificate expiry. Group them into profiles with their own sounds and recovery scripts.' },
+  { icon: <TrackChangesRoundedIcon />, title: 'Targets & Profiles', text: 'Check websites (HTTP, with optional page text), devices (ping), TCP ports, DNS names and SSL certificate expiry, or find them on your network (off until you turn it on). Group them into profiles with their own sounds and recovery scripts.' },
   { icon: <NotificationsActiveRoundedIcon />, title: 'Alerts', text: 'Sounds and desktop notifications, plus optional emails and webhooks for Slack, Teams, Discord or your phone (ntfy), when a target goes down, recovers or gets slow.' },
   { icon: <EngineeringRoundedIcon />, title: 'Maintenance', text: 'Plan windows for updates and restarts: checks keep running, alerts pause, and the time is left out of availability.' },
   { icon: <AnalyticsRoundedIcon />, title: 'Analytics', text: 'Availability and every recorded outage per target, with notes on what caused it and what fixed it.' },

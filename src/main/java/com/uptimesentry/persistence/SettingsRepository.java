@@ -43,6 +43,9 @@ public class SettingsRepository {
         /** Also serve the page to other devices on the network, on its own port (never the API). */
         public boolean statusPageNetwork = false;
         public int statusPagePort = 8766;
+        /** Network discovery: off until switched on in Settings, and then only run when started. */
+        public boolean discoveryEnabled = false;
+
         /** Profiles to show; empty shows all monitored targets. */
         public java.util.List<String> statusPageProfileIds = new java.util.ArrayList<>();
 

@@ -105,6 +105,12 @@ public class ApiServer {
         app.get("/api/status/info",         dataCtrl::statusInfo);
         app.post("/api/status/open",        dataCtrl::openStatus);
 
+        DiscoveryController discoveryCtrl = new DiscoveryController();
+        app.get("/api/discovery/networks",  discoveryCtrl::networks);
+        app.post("/api/discovery/start",    discoveryCtrl::start);
+        app.get("/api/discovery/status",    discoveryCtrl::status);
+        app.post("/api/discovery/cancel",   discoveryCtrl::cancel);
+
         app.get("/api/autocheck/status",    autoCheckCtrl::getStatus);
         app.post("/api/autocheck/start",    autoCheckCtrl::start);
         app.post("/api/autocheck/stop",     autoCheckCtrl::stop);

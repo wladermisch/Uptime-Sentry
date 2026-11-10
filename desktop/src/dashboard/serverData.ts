@@ -102,6 +102,58 @@ export const putNotes = (outageId: string, notes: OutageNote[]) => call<NotesMap
 
 export const getStatusInfo = () => call<StatusInfo>('GET', '/api/status/info');
 
+// ── Network discovery ───────────────────────────────────────────────────────
+
+export interface DiscoveryNetwork {
+  id: string;
+  name: string;
+  address: string;
+  range: string;
+  /** Hyper-V, WSL, Docker or VPN adapters: off by default. */
+  virtual: boolean;
+}
+
+export interface DiscoveryInfo {
+  enabled: boolean;
+  networks: DiscoveryNetwork[];
+  ports: number[];
+}
+
+export interface FoundService {
+  port: number;
+  name: string;
+  confidence: 'IDENTIFIED' | 'LIKELY' | 'UNKNOWN';
+  source: 'mDNS' | 'SSDP' | 'port';
+  check: 'HTTP' | 'TCP' | 'PING';
+  suggestedHost: string;
+  detail: string | null;
+}
+
+export interface FoundDevice {
+  ip: string;
+  hostname: string | null;
+  services: FoundService[];
+}
+
+export interface DiscoveryStatus {
+  running: boolean;
+  active: boolean;
+  phase: 'idle' | 'listening' | 'sweeping' | 'ports' | 'identifying' | 'naming' | 'done' | 'cancelled' | 'failed';
+  progress: number;
+  message: string | null;
+  networks: string[];
+  devices: FoundDevice[];
+  startedAt: string | null;
+  finishedAt: string | null;
+  cancelled: boolean;
+  error: string | null;
+}
+
+export const getDiscoveryInfo = () => call<DiscoveryInfo>('GET', '/api/discovery/networks');
+export const startDiscovery = (networks: string[], ports: boolean) => call<DiscoveryStatus>('POST', '/api/discovery/start', { networks, ports });
+export const getDiscoveryStatus = () => call<DiscoveryStatus>('GET', '/api/discovery/status');
+export const cancelDiscovery = () => call<DiscoveryStatus>('POST', '/api/discovery/cancel');
+
 const LEGACY_NOTES_KEY = 'uptime_sentry_incident_notes';
 
 /**
