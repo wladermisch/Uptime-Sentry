@@ -1,7 +1,11 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
-import { navItems, secondaryNavItems, navigate } from '../nav';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
+import { arrange, navItems, secondaryNavItems, navigate, useNavLayout } from '../nav';
+import { openSidebarSettings } from './SidebarSection';
 import { fonts, signal } from '../../shared-theme/themePrimitives';
 
 function RailItem(props: {
@@ -67,6 +71,9 @@ function RailItem(props: {
 export default function MenuContent() {
   const [active, setActive] = React.useState('home');
   const [downCount, setDownCount] = React.useState(0);
+  const [menu, setMenu] = React.useState<{ x: number; y: number } | null>(null);
+  const layout = useNavLayout();
+  const shown = (items: typeof navItems) => arrange(items, layout).filter((i) => !layout.hidden.includes(i.value));
 
   React.useEffect(() => {
     const onTab = (e: Event) => {
@@ -89,10 +96,11 @@ export default function MenuContent() {
     <Box
       component="nav"
       aria-label="Main"
+      onContextMenu={(e: React.MouseEvent) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}
       sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', py: 1.5 }}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {navItems.map((item) => (
+        {shown(navItems).map((item) => (
           <RailItem
             key={item.value}
             item={item}
@@ -102,10 +110,21 @@ export default function MenuContent() {
         ))}
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {secondaryNavItems.map((item) => (
+        {shown(secondaryNavItems).map((item) => (
           <RailItem key={item.value} item={item} active={active === item.value} />
         ))}
       </Box>
+      <Menu
+        open={!!menu}
+        onClose={() => { setMenu(null); }}
+        anchorReference="anchorPosition"
+        anchorPosition={menu ? { top: menu.y, left: menu.x } : undefined}
+      >
+        <MenuItem onClick={() => { setMenu(null); openSidebarSettings(); }} sx={{ gap: 1, fontSize: 14 }}>
+          <TuneRoundedIcon fontSize="small" />
+          Customize sidebar…
+        </MenuItem>
+      </Menu>
     </Box>
   );
 }

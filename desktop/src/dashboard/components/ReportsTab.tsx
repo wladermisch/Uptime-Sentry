@@ -19,6 +19,7 @@ import { Theme } from '@mui/material/styles';
 import { fonts, gray, ink, signal } from '../../shared-theme/themePrimitives';
 import { IndexHeader, Label, Tag } from './workspace';
 import ScheduledReports from './ScheduledReports';
+import TemplateMenu from './TemplateMenu';
 import { NotesMap, loadNotes } from '../serverData';
 import { CheckResult, formatClock } from '../home/boardModel';
 import {
@@ -88,6 +89,26 @@ const DEFAULT_CONTENTS: Contents = {
 };
 
 const OPTIONS_KEY = 'uptime_sentry_report_options';
+
+/** A saved report setup. Dates are only kept for custom periods; presets move with the calendar. */
+interface ReportTemplate {
+  title: string;
+  scope: 'profile' | 'target';
+  profileId: string;
+  targetId: string;
+  preset: Preset;
+  from?: string;
+  to?: string;
+  slaChoice: string;
+  slaCustom: string;
+  includeRemoved: boolean;
+  notes: string;
+  contents: Contents;
+}
+
+const PRESET_LABELS: Record<Preset, string> = {
+  '7d': 'Last 7 days', '30d': 'Last 30 days', month: 'This month', lastMonth: 'Last month', custom: 'Custom dates',
+};
 
 interface StoredOptions {
   contents: Contents;
@@ -405,6 +426,40 @@ export default function ReportsTab() {
 
   const groups = ['Figures', 'Charts', 'Details'] as const;
 
+  const currentTemplate = (): ReportTemplate => ({
+    title: reportTitle, scope, profileId: selectedProfileId, targetId: selectedTargetId, preset,
+    ...(preset === 'custom' ? { from: fromDate, to: toDate } : {}),
+    slaChoice, slaCustom, includeRemoved, notes: authorNotes, contents,
+  });
+
+  const applyTemplate = (t: ReportTemplate) => {
+    setReportTitle(t.title ?? 'Uptime report');
+    setScope(t.scope === 'target' ? 'target' : 'profile');
+    // A profile or target that no longer exists falls back to what is selected now.
+    if (t.profileId && profiles.some((p) => p.id === t.profileId)) setSelectedProfileId(t.profileId);
+    const profileForTarget = t.profileId && profiles.some((p) => p.id === t.profileId) ? t.profileId : selectedProfileId;
+    setSelectedTargetId(targets.some((x) => String(x.id) === t.targetId && x.profileId === profileForTarget) ? t.targetId : 'all');
+    if (t.preset === 'custom' && t.from && t.to) {
+      setPreset('custom'); setFromDate(t.from); setToDate(t.to);
+    } else {
+      applyPreset(t.preset in PRESET_LABELS && t.preset !== 'custom' ? t.preset : '7d');
+    }
+    setSlaChoice(t.slaChoice ?? '99.9');
+    setSlaCustom(t.slaCustom ?? '99.8');
+    setIncludeRemoved(t.includeRemoved ?? true);
+    setAuthorNotes(t.notes ?? '');
+    setContents({ ...DEFAULT_CONTENTS, ...t.contents });
+  };
+
+  const describeTemplate = (t: ReportTemplate) => {
+    const where = t.scope === 'target' && t.targetId !== 'all'
+      ? targets.find((x) => String(x.id) === t.targetId)?.name ?? 'a removed target'
+      : profiles.find((p) => p.id === t.profileId)?.name ?? 'a removed profile';
+    const when = t.preset === 'custom' && t.from && t.to ? `${t.from} to ${t.to}` : PRESET_LABELS[t.preset] ?? '';
+    const sla = t.slaChoice === 'off' ? 'no SLA' : `SLA ${t.slaChoice === 'custom' ? t.slaCustom : t.slaChoice}%`;
+    return `${where} · ${when} · ${sla}`;
+  };
+
   return (
     <Box sx={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0 }}>
       {/* Print rules isolate the report document for PDF export */}
@@ -438,6 +493,15 @@ export default function ReportsTab() {
         <IndexHeader title="Report options" />
         <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2.5 }}>
           <Stack spacing={2.5}>
+            <Box>
+              <TemplateMenu<ReportTemplate>
+                kind="reports"
+                current={currentTemplate}
+                onLoad={applyTemplate}
+                suggestName={reportTitle === 'Uptime report' ? '' : reportTitle}
+                describe={describeTemplate}
+              />
+            </Box>
             <TextField label="Report title" size="small" fullWidth value={reportTitle} onChange={(e) => { setReportTitle(e.target.value); }} />
 
             <Stack direction="row" spacing={1.5}>

@@ -10,6 +10,9 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
+import RadarRoundedIcon from '@mui/icons-material/RadarRounded';
+import Stack from '@mui/material/Stack';
+import { openDiscovery } from './DiscoveryDialog';
 import { PassSection } from './workspace';
 import { API } from '../historyStats';
 import { SETTINGS_SAVED } from './AppGate';
@@ -45,13 +48,18 @@ export default function DiscoverySection() {
 
   return (
     <PassSection label="Network discovery" hint="Finds services on your own network so you can add them as targets in a few clicks.">
-      <FormControlLabel
-        sx={{ ml: -1 }}
-        control={<Switch checked={enabled} onChange={(e) => { if (e.target.checked) setAsking(true); else void save(false); }} />}
-        label={<Box component="span" sx={{ fontSize: 14 }}>{enabled ? 'On: start a search from the Targets screen' : 'Off'}</Box>}
-      />
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}>
+        <FormControlLabel
+          sx={{ ml: -1, mr: 'auto' }}
+          control={<Switch checked={enabled} onChange={(e) => { if (e.target.checked) setAsking(true); else void save(false); }} />}
+          label={<Box component="span" sx={{ fontSize: 14 }}>{enabled ? 'On' : 'Off'}</Box>}
+        />
+        <Button size="small" variant="outlined" startIcon={<RadarRoundedIcon />} disabled={!enabled} onClick={openDiscovery}>
+          Find services now
+        </Button>
+      </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, maxWidth: '72ch', lineHeight: 1.5 }}>
-        It never runs on its own. Each search is started by you, stays on this computer&apos;s private networks, and only suggests targets.
+        It never runs on its own. You can also start it from the Targets screen. Each search is started by you, stays on this computer&apos;s private networks, and only suggests targets.
       </Typography>
       {error && <Typography variant="body2" role="alert" sx={{ mt: 1 }}>{error}</Typography>}
 

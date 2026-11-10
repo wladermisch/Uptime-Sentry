@@ -25,6 +25,7 @@ import { LocalOnlyNote, SETTINGS_SAVED } from './AppGate';
 import { AddSoundButton, SoundSelect, previewSound, useSoundLibrary } from './SoundPicker';
 import WebhooksSection from './WebhooksSection';
 import StatusPageSection from './StatusPageSection';
+import SidebarSection from './SidebarSection';
 import DiscoverySection from './DiscoverySection';
 import { ExportBackupButton, ImportBackupButton } from './BackupControls';
 
@@ -418,6 +419,8 @@ export default function SettingsTab() {
       <StatusPageSection />
 
       <DiscoverySection />
+
+      <SidebarSection />
 
       <DataSection storage={storage} onCleared={loadStorage} />
 

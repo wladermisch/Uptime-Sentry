@@ -3,6 +3,8 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
@@ -10,6 +12,28 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { fonts, gray, ink, paper } from '../../shared-theme/themePrimitives';
 import { API } from '../historyStats';
 import { Pass, PassHead, PassSection } from './workspace';
+import { MaskOptions, makeMasker } from '../logMask';
+
+const MASK_KEY = 'uptime_sentry_feedback_mask';
+
+function loadMask(): MaskOptions {
+  try {
+    const raw = JSON.parse(localStorage.getItem(MASK_KEY) || '{}') as Partial<MaskOptions>;
+    return { names: raw.names ?? true, addresses: raw.addresses ?? true };
+  } catch {
+    return { names: true, addresses: true };
+  }
+}
+
+/** Names and hosts of every target in every profile. */
+function knownTargets(): { names: string[]; hosts: string[] } {
+  try {
+    const list = JSON.parse(localStorage.getItem('uptime_sentry_targets') || '[]') as { name?: string; host?: string }[];
+    return { names: list.map((t) => t.name ?? ''), hosts: list.map((t) => t.host ?? '') };
+  } catch {
+    return { names: [], hosts: [] };
+  }
+}
 
 const ISSUES_URL = 'https://github.com/wladermisch/Uptime-Sentry/issues';
 
@@ -24,6 +48,14 @@ type LogState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; lines
 export default function FeedbackTab() {
   const [logs, setLogs] = React.useState<LogState>({ kind: 'loading' });
   const [copied, setCopied] = React.useState(false);
+  const [mask, setMask] = React.useState<MaskOptions>(loadMask);
+  const masker = React.useMemo(() => makeMasker(knownTargets(), mask), [mask]);
+
+  const setMaskOption = (k: keyof MaskOptions) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = { ...mask, [k]: e.target.checked };
+    setMask(next);
+    try { localStorage.setItem(MASK_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+  };
 
   const fetchLogs = React.useCallback(async () => {
     setLogs({ kind: 'loading' });
@@ -40,24 +72,28 @@ export default function FeedbackTab() {
 
   React.useEffect(() => { void fetchLogs(); }, [fetchLogs]);
 
+  const lines = React.useMemo(
+    () => (logs.kind === 'ready' ? logs.lines.map((l) => ({ no: l.no, text: masker(l.text) })) : []),
+    [logs, masker],
+  );
+
   const handleCopy = React.useCallback(async () => {
     if (logs.kind !== 'ready') return;
     try {
-      await navigator.clipboard.writeText(logs.lines.map((l) => l.text).join('\n'));
+      await navigator.clipboard.writeText(lines.map((l) => l.text).join('\n'));
       setCopied(true);
       setTimeout(() => { setCopied(false); }, 2000);
     } catch {
       // Clipboard unavailable: leave the button as it was.
     }
-  }, [logs]);
+  }, [logs, lines]);
 
-  const lines = logs.kind === 'ready' ? logs.lines : [];
 
   return (
     <Pass aria-label="Report a problem" maxWidth={1100}>
       <PassHead
         title="Report a problem"
-        description="Copy the recent log below and paste it into a new GitHub issue together with what you were doing. It contains target names and hosts, so remove anything you don't want to share."
+        description="Copy the recent log below and paste it into a new GitHub issue together with what you were doing. Target names and addresses are masked with asterisks unless you untick that below; the copy is exactly what you see."
       />
 
       <PassSection label={`Service log${logs.kind === 'ready' ? ` · ${lines.length} lines` : ''}`}>
@@ -77,6 +113,16 @@ export default function FeedbackTab() {
         <Button size="small" variant="contained" startIcon={<OpenInNewIcon />} onClick={() => { window.open(ISSUES_URL, '_blank', 'noopener'); }}>
           Open GitHub issues
         </Button>
+      </Stack>
+      <Stack direction="row" spacing={2} sx={{ mb: 1.5, flexWrap: 'wrap', rowGap: 0.5 }}>
+        <FormControlLabel
+          control={<Checkbox size="small" checked={mask.names} onChange={setMaskOption('names')} />}
+          label={<Typography sx={{ fontSize: 14 }}>Mask target names</Typography>}
+        />
+        <FormControlLabel
+          control={<Checkbox size="small" checked={mask.addresses} onChange={setMaskOption('addresses')} />}
+          label={<Typography sx={{ fontSize: 14 }}>Mask IPs, hosts and email addresses</Typography>}
+        />
       </Stack>
 
       <Box

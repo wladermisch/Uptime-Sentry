@@ -13,6 +13,7 @@ import {
   FieldGrid, IndexEmpty, IndexHeader, IndexList, IndexRow, Pass, PassFooter, PassHead, PassSection, Tag, Workspace,
 } from './workspace';
 import ScopePicker, { describeScope } from './ScopePicker';
+import TemplateMenu from './TemplateMenu';
 import {
   DAY_NAMES, MaintenanceWindow, formatLocal, getMaintenance, putMaintenance, readProfilesAndTargets,
 } from '../serverData';
@@ -32,6 +33,45 @@ function blank(): MaintenanceWindow {
     title: 'Planned maintenance', note: '', enabled: true, scope: 'ALL', profileId: null, targetIds: [],
     mode: 'ONCE', start: toInput(start), end: toInput(end), days: [6], startTime: '22:00', endTime: '23:00',
   };
+}
+
+/** What a template keeps: everything but the dates of a one-time window, which become a length. */
+interface MaintenanceTemplate {
+  title: string;
+  note: string;
+  scope: MaintenanceWindow['scope'];
+  profileId: string | null;
+  targetIds: number[];
+  mode: MaintenanceWindow['mode'];
+  durationMin: number;
+  days: number[];
+  startTime: string;
+  endTime: string;
+}
+
+function toTemplate(w: MaintenanceWindow): MaintenanceTemplate {
+  const span = w.start && w.end ? (new Date(w.end).getTime() - new Date(w.start).getTime()) / 60_000 : 60;
+  return {
+    title: w.title, note: w.note, scope: w.scope, profileId: w.profileId ?? null, targetIds: [...w.targetIds], mode: w.mode,
+    durationMin: Number.isFinite(span) && span > 0 ? Math.round(span) : 60, days: [...w.days], startTime: w.startTime, endTime: w.endTime,
+  };
+}
+
+/** A new window from a template; a one-time window starts at the next full hour and keeps its length. */
+function fromTemplate(t: MaintenanceTemplate): MaintenanceWindow {
+  const base = blank();
+  const start = new Date(base.start ?? Date.now());
+  const minutes = t.durationMin > 0 ? t.durationMin : 60;
+  return {
+    ...base, title: t.title, note: t.note ?? '', scope: t.scope, profileId: t.profileId ?? null, targetIds: t.targetIds ?? [], mode: t.mode,
+    end: toInput(new Date(start.getTime() + minutes * 60_000)), days: t.days ?? [], startTime: t.startTime, endTime: t.endTime,
+  };
+}
+
+function describeTemplate(t: MaintenanceTemplate): string {
+  if (t.mode === 'WEEKLY') return `Weekly ${[...t.days].sort().map((d) => DAY_NAMES[d - 1]).join(', ')} ${t.startTime}–${t.endTime}`;
+  const m = t.durationMin;
+  return `One time, ${m % 60 === 0 ? `${m / 60} h` : `${m} min`}`;
 }
 
 function describeWhen(w: MaintenanceWindow): string {
@@ -169,6 +209,13 @@ export default function MaintenanceTab() {
           meta={st ? <><Tag solid={st.solid}>{st.label}</Tag><span>{draft.nextStart && !draft.activeNow ? `next ${formatLocal(draft.nextStart)}` : describeWhen(draft)}</span></> : <span>Checks keep running; alerts pause.</span>}
           actions={
             <>
+              <TemplateMenu<MaintenanceTemplate>
+                kind="maintenance"
+                current={() => toTemplate(draft)}
+                suggestName={draft.title}
+                describe={describeTemplate}
+                onLoad={(t) => { setSelected('new'); setDraft(fromTemplate(t)); setSaved(false); }}
+              />
               <FormControlLabel
                 sx={{ mr: 0.5 }}
                 control={<Switch size="small" checked={draft.enabled} onChange={(e) => { setDraft({ ...draft, enabled: e.target.checked }); }} />}

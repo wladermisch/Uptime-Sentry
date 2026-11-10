@@ -12,7 +12,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import AddIcon from '@mui/icons-material/Add';
 import ButtonBase from '@mui/material/ButtonBase';
 import RadarRoundedIcon from '@mui/icons-material/RadarRounded';
-import DiscoveryDialog, { DiscoveredTarget } from './DiscoveryDialog';
+import DiscoveryDialog, { DiscoveredTarget, takePendingDiscovery } from './DiscoveryDialog';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import {
   FieldGrid, IndexEmpty, IndexFilter, IndexHeader, IndexList, IndexRow, Pass, PassFooter, PassHead, PassSection, Tag, Workspace, mono,
@@ -76,7 +76,8 @@ export default function TargetsTab() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const sounds = useSoundLibrary();
   const caps = useAppCapabilities();
-  const [discoverOpen, setDiscoverOpen] = React.useState(false);
+  // Settings can send the person here with the search already open.
+  const [discoverOpen, setDiscoverOpen] = React.useState(takePendingDiscovery);
 
   // Form State
   const [name, setName] = React.useState('');
