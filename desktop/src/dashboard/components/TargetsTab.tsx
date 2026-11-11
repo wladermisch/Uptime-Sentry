@@ -14,6 +14,12 @@ import ButtonBase from '@mui/material/ButtonBase';
 import RadarRoundedIcon from '@mui/icons-material/RadarRounded';
 import DiscoveryDialog, { DiscoveredTarget, takePendingDiscovery } from './DiscoveryDialog';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Typography from '@mui/material/Typography';
 import {
   FieldGrid, IndexEmpty, IndexFilter, IndexHeader, IndexList, IndexRow, Pass, PassFooter, PassHead, PassSection, Tag, Workspace, mono,
 } from './workspace';
@@ -283,8 +289,22 @@ export default function TargetsTab() {
     setDryRunResult(null);
   };
 
+  // A new or changed recovery command is confirmed before it is saved: it runs on this PC.
+  const [confirmCommand, setConfirmCommand] = React.useState<string | null>(null);
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeProfile) return;
+    const command = recoveryAction.trim();
+    const saved = (targets.find((t) => t.id === selectedId)?.recoveryAction ?? '').trim();
+    if (command && command !== saved) {
+      setConfirmCommand(command);
+      return;
+    }
+    saveTarget();
+  };
+
+  const saveTarget = () => {
     if (!activeProfile) return;
 
     const parsedStatusCodes = statusCodesStr
@@ -827,6 +847,14 @@ export default function TargetsTab() {
               placeholder="e.g. C:\scripts\restart_apache.bat"
               helperText={`Runs after ${failuresLimit} failed ${failuresLimit === 1 ? 'check' : 'checks'} in a row. Leave empty to only alert.`}
             />
+            {recoveryAction.trim() && (
+              <Box role="note" sx={{ mt: 1.5, display: 'flex', gap: 1, alignItems: 'flex-start', p: 1.25, borderRadius: 1, border: '1px solid', borderColor: 'warning.main' }}>
+                <WarningAmberRoundedIcon sx={{ fontSize: 18, color: 'warning.main', mt: 0.25 }} />
+                <Typography variant="body2" sx={{ color: 'text.primary' }}>
+                  This command will be run on this PC, with your Windows rights, every time the target fails. Only use commands and scripts you wrote or fully trust.
+                </Typography>
+              </Box>
+            )}
           </PassSection>
 
           <PassSection label="Email alerts" hint="Who gets an email when this target goes down.">
@@ -854,6 +882,29 @@ export default function TargetsTab() {
         </Pass>
       )}
     </Workspace>
+    <Dialog open={confirmCommand !== null} onClose={() => { setConfirmCommand(null); }} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <WarningAmberRoundedIcon sx={{ color: 'warning.main' }} />
+        Run this command on this PC?
+      </DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>
+          When {name.trim() || 'this target'} fails {failuresLimit} {Number(failuresLimit) === 1 ? 'time' : 'times'} in a row, Uptime Sentry runs:
+        </Typography>
+        <Box component="pre" className="selectable" sx={{ ...mono, fontSize: 13, m: 0, p: 1.5, borderRadius: 1, border: '1px solid', borderColor: 'divider', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+          {confirmCommand}
+        </Box>
+        <Typography variant="body2" sx={{ color: 'text.primary', mt: 1.5 }}>
+          It runs with your Windows rights and can change or delete anything you can. Only save it if you wrote it yourself or fully trust where it came from.
+        </Typography>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <Button size="small" onClick={() => { setConfirmCommand(null); }} autoFocus>Cancel</Button>
+        <Button size="small" variant="contained" color="warning" onClick={() => { setConfirmCommand(null); saveTarget(); }}>
+          Save with command
+        </Button>
+      </DialogActions>
+    </Dialog>
     </>
   );
 }

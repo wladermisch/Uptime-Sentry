@@ -10,7 +10,8 @@ import DialogActions from '@mui/material/DialogActions';
 import Typography from '@mui/material/Typography';
 import FileUploadRoundedIcon from '@mui/icons-material/FileUploadRounded';
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
-import { Backup, createBackup, readBackup, restoreBackup, saveFile, summarize } from '../backup';
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
+import { Backup, createBackup, readBackup, recoveryCommands, restoreBackup, saveFile, summarize } from '../backup';
 import { toDateInput } from '../historyStats';
 
 /** "1 target", "3 targets". */
@@ -72,9 +73,12 @@ export function ImportBackupButton({ variant = 'outlined', label = 'Import…' }
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  const [trustCommands, setTrustCommands] = React.useState(false);
+
   const onFile = async (file: File | undefined) => {
     if (!file) return;
     setError(null);
+    setTrustCommands(false);
     try {
       setBackup(await readBackup(file));
     } catch (e) {
@@ -97,6 +101,7 @@ export function ImportBackupButton({ variant = 'outlined', label = 'Import…' }
   };
 
   const s = backup ? summarize(backup) : null;
+  const commands = backup ? recoveryCommands(backup) : [];
   return (
     <>
       <Button size="small" variant={variant} startIcon={<FileUploadRoundedIcon />} onClick={() => { input.current?.click(); }}>{label}</Button>
@@ -129,6 +134,27 @@ export function ImportBackupButton({ variant = 'outlined', label = 'Import…' }
                   label="Replace the check history too"
                 />
               )}
+              {commands.length > 0 && (
+                <Box role="note" sx={{ mt: 2, p: 1.5, borderRadius: 1, border: '1px solid', borderColor: 'warning.main' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <WarningAmberRoundedIcon sx={{ fontSize: 18, color: 'warning.main' }} />
+                    {n(commands.length, 'target runs a command', 'targets run commands')} on this PC
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1 }}>
+                    {commands.length === 1 ? 'It runs' : 'They run'} with your Windows rights when the target fails. Only restore a backup you made yourself or fully trust.
+                  </Typography>
+                  <Box component="ul" sx={{ m: 0, pl: 2.5, fontSize: 13, maxHeight: 160, overflowY: 'auto' }}>
+                    {commands.map((c, i) => (
+                      <li key={i}><strong>{c.name}</strong>: <Box component="code" className="selectable" sx={{ wordBreak: 'break-all' }}>{c.command}</Box></li>
+                    ))}
+                  </Box>
+                  <FormControlLabel
+                    sx={{ mt: 1 }}
+                    control={<Checkbox checked={trustCommands} onChange={(e) => { setTrustCommands(e.target.checked); }} />}
+                    label="I trust these commands"
+                  />
+                </Box>
+              )}
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                 The mail password isn&apos;t part of backups; enter it again in Settings if you use email.
               </Typography>
@@ -138,7 +164,7 @@ export function ImportBackupButton({ variant = 'outlined', label = 'Import…' }
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button size="small" onClick={() => { setBackup(null); }} disabled={busy} autoFocus>Cancel</Button>
-          <Button size="small" variant="contained" onClick={() => { void apply(); }} disabled={busy}>{busy ? 'Restoring…' : 'Restore'}</Button>
+          <Button size="small" variant="contained" onClick={() => { void apply(); }} disabled={busy || (commands.length > 0 && !trustCommands)}>{busy ? 'Restoring…' : 'Restore'}</Button>
         </DialogActions>
       </Dialog>
     </>

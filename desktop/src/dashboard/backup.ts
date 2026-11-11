@@ -65,6 +65,20 @@ function count(json: string | undefined): number {
   }
 }
 
+/** Targets in the backup that run a recovery command, so the restore can show them first. */
+export function recoveryCommands(b: Backup): { name: string; command: string }[] {
+  try {
+    const list = JSON.parse(b.local.uptime_sentry_targets ?? '[]') as unknown;
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((t): t is { name?: unknown; recoveryAction: string } => !!t && typeof (t as { recoveryAction?: unknown }).recoveryAction === 'string')
+      .filter((t) => t.recoveryAction.trim() !== '')
+      .map((t) => ({ name: typeof t.name === 'string' ? t.name : 'Unnamed target', command: t.recoveryAction.trim() }));
+  } catch {
+    return [];
+  }
+}
+
 export function summarize(b: Backup): BackupSummary {
   return {
     profiles: count(b.local.uptime_sentry_profiles),

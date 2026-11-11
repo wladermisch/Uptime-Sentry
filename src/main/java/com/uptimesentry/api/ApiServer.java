@@ -44,11 +44,29 @@ public class ApiServer {
         this.statusPage = new StatusPage(targets);
         SettingsController.onSaved = statusPage::applySettings;
 
-        this.app = Javalin.create(config ->
-            config.bundledPlugins.enableCors(cors ->
-                cors.addRule(it -> it.anyHost())
-            )
-        );
+        // Only the desktop app may call the API; see LocalAccess for why and how. CORS headers are set
+        // here rather than by Javalin's plugin, which can't parse the app's "tauri://localhost" origin.
+        this.app = Javalin.create();
+        app.before(ctx -> {
+            String origin = ctx.header("Origin");
+            String reason = LocalAccess.refusal(origin, ctx.header("Host"));
+            if (reason != null) {
+                SentryLogger.warn("Blocked an API request to " + ctx.path() + " from origin " + origin + ".");
+                throw new io.javalin.http.ForbiddenResponse(reason);
+            }
+            if (origin != null) {
+                ctx.header("Access-Control-Allow-Origin", origin);
+                ctx.header("Vary", "Origin");
+            }
+            if (ctx.method() == io.javalin.http.HandlerType.OPTIONS) {
+                ctx.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+                String asked = ctx.header("Access-Control-Request-Headers");
+                ctx.header("Access-Control-Allow-Headers", asked == null ? "Content-Type" : asked);
+                ctx.header("Access-Control-Max-Age", "600");
+                ctx.status(204);
+                ctx.skipRemainingHandlers();
+            }
+        });
 
         registerRoutes();
     }
