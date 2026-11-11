@@ -1,0 +1,73 @@
+name: Bug report
+description: Something in Uptime Sentry doesn't work as it should.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please search [existing issues](https://github.com/wladermisch/Uptime-Sentry/issues?q=is%3Aissue) first.
+        For a check that shows the wrong state, or an alert that didn't arrive, the other forms ask the right questions.
+  - type: input
+    id: version
+    attributes:
+      label: Uptime Sentry version
+      description: Shown under About → Version.
+      placeholder: "0.6.1"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      options:
+        - Home board
+        - Targets
+        - Profiles
+        - Maintenance
+        - Analytics
+        - Reports
+        - Settings
+        - Status page
+        - Network discovery
+        - Backup / restore
+        - Installer / update
+        - Start-up / monitoring service
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Click …
+        3. See …
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Service log
+      description: Feedback → Copy log. Names, addresses and emails are masked with asterisks for you; check before posting.
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or anything else
+      description: Drag images in here.

@@ -1,0 +1,47 @@
+name: Feature request
+description: An idea or improvement for Uptime Sentry.
+title: "[Idea]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do?
+      description: The situation or problem, not only the solution. "I want to know when … because …"
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: How could it work?
+      description: Your idea of how it could look or behave.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Checks / check types
+        - Alerts and notifications
+        - Maintenance
+        - Analytics
+        - Reports
+        - Status page
+        - Network discovery
+        - Profiles
+        - Look and usability
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do today instead?
+      description: Workarounds or other tools you use.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd like to help build this

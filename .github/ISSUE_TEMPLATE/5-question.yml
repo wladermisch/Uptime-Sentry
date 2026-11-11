@@ -1,0 +1,20 @@
+name: Question
+description: Help with setting up or using Uptime Sentry.
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: The [wiki](https://github.com/wladermisch/Uptime-Sentry/wiki) and [FAQ](https://github.com/wladermisch/Uptime-Sentry/wiki/FAQ-and-Troubleshooting) may already have the answer.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What you want to achieve and what you tried.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Uptime Sentry version
+      placeholder: "0.6.1"

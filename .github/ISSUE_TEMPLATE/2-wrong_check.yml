@@ -1,0 +1,66 @@
+name: Check gives a wrong result
+description: A target shows down while it is up, or up while it is down.
+title: "[Check]: "
+labels: ["bug", "checks"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before posting, try **Live test** on the target and the tips in the [FAQ](https://github.com/wladermisch/Uptime-Sentry/wiki/FAQ-and-Troubleshooting#checks).
+        Mask private addresses, e.g. `https://nas.****.lan` or `192.168.*.*`.
+  - type: input
+    id: version
+    attributes:
+      label: Uptime Sentry version
+      placeholder: "0.6.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: Check type
+      options:
+        - HTTP(S)
+        - Ping
+        - TCP port
+        - DNS
+        - SSL certificate
+    validations:
+      required: true
+  - type: dropdown
+    id: direction
+    attributes:
+      label: What is wrong?
+      options:
+        - Shows down, but the service works
+        - Shows up, but the service is down
+        - Shows slow, but it is fast
+        - Flips between up and down
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Target settings
+      description: Address (masked), port, timeout, alert after failures, status codes, page content check, expected DNS addresses…
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason shown in the app
+      description: The reason from Live test, Analytics or the outage log, e.g. "TLS/certificate error" or "HTTP 403".
+    validations:
+      required: true
+  - type: textarea
+    id: manual
+    attributes:
+      label: How did you check it by hand?
+      description: e.g. opened it in the browser, `ping`, `Test-NetConnection host -Port 443`, `Resolve-DnsName`.
+  - type: textarea
+    id: log
+    attributes:
+      label: Service log
+      description: Feedback → Copy log (masked).
+      render: text

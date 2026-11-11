@@ -1,0 +1,77 @@
+name: Alert not delivered
+description: An email, webhook, sound or desktop notification didn't arrive, or arrived wrong.
+title: "[Alert]: "
+labels: ["bug", "alerts"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please try **Send test email** / **Send test** first, and check the [alert FAQ](https://github.com/wladermisch/Uptime-Sentry/wiki/FAQ-and-Troubleshooting#alerts).
+        **Never paste passwords, webhook URLs or tokens here.**
+  - type: input
+    id: version
+    attributes:
+      label: Uptime Sentry version
+      placeholder: "0.6.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: channel
+    attributes:
+      label: Which alert?
+      multiple: true
+      options:
+        - Email
+        - Scheduled report email
+        - Webhook – Slack
+        - Webhook – Microsoft Teams
+        - Webhook – Discord
+        - Webhook – ntfy
+        - Webhook – Other (JSON)
+        - Sound
+        - Desktop notification
+        - Recovery command
+    validations:
+      required: true
+  - type: dropdown
+    id: event
+    attributes:
+      label: Which event?
+      multiple: true
+      options:
+        - Down
+        - Recovered
+        - Slow
+        - Fast again
+        - Test message
+  - type: dropdown
+    id: test
+    attributes:
+      label: Does the test message work?
+      options:
+        - "Yes, only real alerts fail"
+        - "No, the test fails too"
+        - There is no test for this
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup
+      description: |
+        Email: provider or SMTP server, port, encryption (no password).
+        Webhook: service, events and profiles picked (no URL).
+        Also say whether a maintenance window was active.
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error message
+      description: What the test button or "Last send failed" showed.
+  - type: textarea
+    id: log
+    attributes:
+      label: Service log
+      description: Feedback → Copy log (masked).
+      render: text
