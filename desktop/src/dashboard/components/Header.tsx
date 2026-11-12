@@ -19,7 +19,7 @@ import {
   ACKS_CHANGED, AlertEvent, CheckResult, acknowledgeUntil, alertEvents, formatSince, loadAcks,
 } from '../home/boardModel';
 
-const CURRENT_RELEASE = 'v0.6.1';
+const CURRENT_RELEASE = 'v0.7.1';
 const UPDATE_DISMISSED_KEY = 'uptime_sentry_update_dismissed';
 const SHOWN = 15;
 
